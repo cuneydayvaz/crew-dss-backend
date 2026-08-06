@@ -14,6 +14,17 @@ from sqlalchemy.orm import sessionmaker, Session, relationship
 import uvicorn
 import nest_asyncio
 
+app = FastAPI()
+
+# CORS Ayarları - Tüm kökenlere (origins), metodlara ve başlıklara tam izin
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 # --- DATABASE ---
 SQLALCHEMY_DATABASE_URL = "sqlite:///./airline_hotel_dss.db"
 engine = create_engine(SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False})
