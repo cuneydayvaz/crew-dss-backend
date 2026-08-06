@@ -1,2 +1,6 @@
 fastapi
 uvicorn
+sqlalchemy
+requests
+pydantic
+nest_asyncio
