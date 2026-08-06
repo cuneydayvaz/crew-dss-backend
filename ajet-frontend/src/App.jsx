@@ -13,7 +13,8 @@ import iconShadow from 'leaflet/dist/images/marker-shadow.png';
 let DefaultIcon = L.icon({ iconUrl: icon, shadowUrl: iconShadow, iconSize: [25, 41], iconAnchor: [12, 41] });
 L.Marker.prototype.options.icon = DefaultIcon;
 
-const API_BASE = "http://127.0.0.1:8000/api";
+// Production Render backend adresi tanımlandı
+const API_BASE = "https://crew-dss-backend.onrender.com/api";
 
 function ChangeView({ center }) { const map = useMap(); map.setView(center, 12); return null; }
 
@@ -67,8 +68,6 @@ export default function App() {
   const [showCompareModal, setShowCompareModal] = useState(false);
   const [showAddHotelModal, setShowAddHotelModal] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-  // DÜZELTİLDİ #8: Favori sıralama MCDM'i bozuyordu.
-  // Favoriler zaten ayrı bir view'da gösteriliyor; results view'da MCDM sırası korunuyor.
   const [filters, setFilters] = useState({ specificStar: 0, maxPrice: 10000 });
   const [sortBy, setSortBy] = useState('score_desc');
   const [expandedAirports, setExpandedAirports] = useState({});
@@ -138,12 +137,11 @@ export default function App() {
     finally { setLoading(false); }
   };
 
-  // DÜZELTİLDİ #5: inspector_name artık SecurityModal'dan geliyor, hardcoded değil
   const submitSecurityForm = async (formData) => {
     try {
       await axios.post(`${API_BASE}/security-forms`, {
         hotel_id: selectedHotel.id,
-        ...formData  // inspector_name formData içinde geliyor
+        ...formData
       });
       alert("Denetim kaydedildi!");
       setSelectedHotel(null);
@@ -181,8 +179,6 @@ export default function App() {
     }
   };
 
-  // DÜZELTİLDİ #8: results view'da favoriler artık MCDM sıralamasını bozmuyor.
-  // Favorites view zaten ayrı endpoint'ten MCDM sıralı geliyor, burada ek sort gereksiz.
   const displayHotels = hotels.filter(h => {
     const starMatch = filters.specificStar === 0 || Math.floor(h.stars) === filters.specificStar;
     const priceMatch = h.base_price <= filters.maxPrice;
@@ -191,7 +187,7 @@ export default function App() {
     if (sortBy === 'price_asc') return a.base_price - b.base_price;
     if (sortBy === 'price_desc') return b.base_price - a.base_price;
     if (sortBy === 'dist_asc') return a.distance_km - b.distance_km;
-    return b.mcdm_score - a.mcdm_score; // varsayılan: MCDM skoru
+    return b.mcdm_score - a.mcdm_score;
   });
 
   const exportToExcel = () => {
@@ -567,13 +563,9 @@ function AddHotelModal({ onClose, onSubmit, airportList }) {
   );
 }
 
-// DÜZELTİLDİ #9: Kişi başı fiyat mı, oda fiyatı mı belirsizliği giderildi.
-// base_price artık "oda fiyatı" olarak ele alınıyor; kişi sayısı değil gece × oda fiyatı hesaplanıyor.
-// Kullanıcıya açıklama gösteriliyor.
 function CostCalculatorModal({ hotel, onClose }) {
-  const [rooms, setRooms] = useState(6);   // kaç oda (pilot + kabin ekibi)
+  const [rooms, setRooms] = useState(6);
   const [nights, setNights] = useState(1);
-  // DÜZELTİLDİ #9: total = oda_sayısı × gecelik_fiyat × gece
   const total = rooms * hotel.base_price * nights;
 
   return (
@@ -684,10 +676,9 @@ function HotelDetailModal({ hotel, onClose }) {
   );
 }
 
-// DÜZELTİLDİ #5 & #6: Denetçi adı artık formdan alınıyor (hardcoded değil)
 function SecurityModal({ hotel, onClose, onSubmit }) {
   const [formData, setFormData] = useState({
-    inspector_name: "",   // Yeni alan
+    inspector_name: "",
     area_safe: true, security_guard_24_7: true, cctv_exists: true,
     internet_in_rooms: true, generator_exists: true,
     perimeter_score: 80, room_score: 80, emergency_score: 80, staff_score: 80, notes: ""
@@ -712,7 +703,6 @@ function SecurityModal({ hotel, onClose, onSubmit }) {
       <div className="bg-white w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
         <div className="bg-[#002244] p-4 flex justify-between items-center text-white"><h3 className="font-bold text-lg flex items-center gap-2"><Shield size={20}/> Hızlı Denetim</h3><button onClick={onClose}><X size={24}/></button></div>
         <div className="p-6 overflow-y-auto space-y-6">
-          {/* DÜZELTİLDİ #6: Denetçi adı input alanı eklendi */}
           <div>
             <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Denetçi Bilgisi</h4>
             <input
