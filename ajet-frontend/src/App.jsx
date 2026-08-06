@@ -13,7 +13,7 @@ import iconShadow from 'leaflet/dist/images/marker-shadow.png';
 let DefaultIcon = L.icon({ iconUrl: icon, shadowUrl: iconShadow, iconSize: [25, 41], iconAnchor: [12, 41] });
 L.Marker.prototype.options.icon = DefaultIcon;
 
-// Production Render backend adresi tanımlandı
+// Production Render backend adresi - Önbellek kırıcı (Cache Buster) eklendi
 const API_BASE = "https://crew-dss-backend.onrender.com/api";
 
 function ChangeView({ center }) { const map = useMap(); map.setView(center, 12); return null; }
@@ -27,7 +27,7 @@ function LoginScreen({ onLogin }) {
     const handleLogin = async (e) => {
         e.preventDefault();
         try {
-            await axios.post(`${API_BASE}/login`, { username, password });
+            await axios.post(`${API_BASE}/login?v=force_prod_${Date.now()}`, { username, password });
             onLogin(true);
         } catch (err) {
             setError('Hatalı kullanıcı adı veya şifre!');
@@ -77,8 +77,8 @@ export default function App() {
   const [dashSearchCode, setDashSearchCode] = useState('');
 
   useEffect(() => {
-    axios.post(`${API_BASE}/init-data`).then(() =>
-      axios.get(`${API_BASE}/airports-list`).then(res => setAirportList(res.data))
+    axios.post(`${API_BASE}/init-data?v=force_prod_${Date.now()}`).then(() =>
+      axios.get(`${API_BASE}/airports-list?v=force_prod_${Date.now()}`).then(res => setAirportList(res.data))
     );
   }, []);
 
@@ -483,7 +483,7 @@ function SidebarItem({ icon, label, isOpen, active, onClick }) {
 }
 
 function StatCard({ title, value, icon, color }) {
-  return <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 flex items-center gap-4"><div className={`p-4 rounded-xl text-white ${color}`}>{icon}</div><div><p className="text-slate-500 text-sm font-medium">{title}</p><p className="text-2xl font-bold text-slate-800">{value}</p></div></div>
+  return <div className="bg-[#ffffff] p-6 rounded-2xl shadow-sm border border-slate-200 flex items-center gap-4"><div className={`p-4 rounded-xl text-white ${color}`}>{icon}</div><div><p className="text-slate-500 text-sm font-medium">{title}</p><p className="text-2xl font-bold text-slate-800">{value}</p></div></div>
 }
 
 function HotelCard({ hotel, rank, isComparing, onCompareToggle, onInspect, onDetail, onFavorite, onCalculate }) {
