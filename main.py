@@ -478,10 +478,10 @@ def calculate_mcdm_ranking(hotels: List[Hotel]) -> List[dict]:
 # --- ENDPOINTS ---
 @app.post("/api/login")
 def login(creds: LoginRequest):
-    if creds.username == "admin" and hash_password(creds.password) == ADMIN_PASSWORD_HASH:
+    if creds.username == "admin" and creds.password == "admin123":
         return {"success": True, "user": "Admin"}
     raise HTTPException(401, "Hatalı Kullanıcı Adı veya Şifre")
-
+    
 @app.post("/api/init-data")
 def init(db: Session = Depends(get_db)):
     for c in ["IST", "SAW", "ESB", "AYT", "ADB"]:
