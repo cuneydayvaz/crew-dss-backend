@@ -16,10 +16,14 @@ import nest_asyncio
 
 app = FastAPI()
 
-# CORS Ayarları - Tüm kökenlere (origins), metodlara ve başlıklara tam izin
+# CORS Ayarları - Vercel domain'ine ve lokal testlere özel izin
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[
+        "https://crew-dss-v1.vercel.app",
+        "http://localhost:5173",
+        "http://localhost:3000",
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
