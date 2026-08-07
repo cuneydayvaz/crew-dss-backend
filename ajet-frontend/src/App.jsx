@@ -13,7 +13,6 @@ import iconShadow from 'leaflet/dist/images/marker-shadow.png';
 let DefaultIcon = L.icon({ iconUrl: icon, shadowUrl: iconShadow, iconSize: [25, 41], iconAnchor: [12, 41] });
 L.Marker.prototype.options.icon = DefaultIcon;
 
-// Production Render backend adresi - Önbellek kırıcı (Cache Buster) eklendi
 const API_BASE = "https://crew-dss-backend.onrender.com/api";
 
 function ChangeView({ center }) { const map = useMap(); map.setView(center, 12); return null; }
@@ -527,7 +526,6 @@ function HotelCard({ hotel, rank, selectedCurrency = 'TRY', currencyRates = { TR
   else if (hotel.source === "database") sourceBadge = <span className="bg-emerald-600 text-white text-[10px] px-2 py-0.5 rounded font-bold shadow-md">Sistem Verisi</span>;
   else sourceBadge = <span className="bg-amber-500 text-white text-[10px] px-2 py-0.5 rounded font-bold shadow-md">Canlı Veri</span>;
 
-  // Dinamik Para Birimi Çevrimi
   const convertedPrice = Math.round(hotel.base_price * (currencyRates[selectedCurrency]?.rate || 1));
   const symbol = currencyRates[selectedCurrency]?.symbol || '₺';
   const scoreVal = hotel.mcdm_score || hotel.mcdmScore || 0;
