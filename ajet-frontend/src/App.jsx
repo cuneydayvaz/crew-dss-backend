@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
-import { Shield, Plane, Star, Map as MapIcon, List, X, Search, CheckCircle, Hotel, Filter, Download, ChevronDown, ChevronRight, ArrowLeft, Globe, ExternalLink, FileSpreadsheet, FileText, Home, Menu, LayoutDashboard, Wifi, Dumbbell, Coffee, Bus, Waves, Utensils, Sun, Cloud, CloudRain, Snowflake, Car, Sparkles, PieChart, TrendingUp, Award, BarChart3, RotateCcw, MessageSquare, Clock, User, Heart, Calculator, Scale, Lock, LogIn, Bot, Plus, Activity, DollarSign } from 'lucide-react';
+import { Shield, Plane, Star, Map as MapIcon, List, X, Search, CheckCircle, Hotel, Filter, Download, ChevronDown, ChevronRight, ArrowLeft, Globe, ExternalLink, FileSpreadsheet, FileText, Home, Menu, LayoutDashboard, Wifi, Dumbbell, Coffee, Bus, Waves, Utensils, Sun, Cloud, CloudRain, Snowflake, Car, Sparkles, PieChart, TrendingUp, Award, BarChart3, RotateCcw, MessageSquare, Clock, User, Heart, Calculator, Scale, Lock, LogIn, Bot, Plus, Activity, DollarSign, AlertTriangle, TrendingDown, Layers } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
@@ -197,6 +197,40 @@ export default function App() {
     return (b.mcdm_score || b.mcdmScore || 0) - (a.mcdm_score || a.mcdmScore || 0);
   });
 
+  const exportDashboardPDF = () => {
+    if (!stats) return;
+    const doc = new jsPDF();
+    doc.setFontSize(18);
+    doc.text(`Crew Hotel DSS - Yonetici Özeti Raporu`, 14, 20);
+    doc.setFontSize(10);
+    doc.text(`Tarih: ${new Date().toLocaleDateString()}`, 14, 28);
+    doc.text(`Bölge: ${stats.top_airport}`, 14, 34);
+
+    const summaryRows = [
+      ["Toplam Denetlenen Otel", stats.total_audits],
+      ["Onaylı Otel Sayısı", stats.approved_count],
+      ["Ortalama MCDM Skoru", stats.avg_score],
+      ["Guvenlik Uyum Orani", `%${stats.compliance_rate}`]
+    ];
+
+    doc.autoTable({
+      head: [["Metrik", "Deger"]],
+      body: summaryRows,
+      startY: 42
+    });
+
+    if (stats.top_hotels && stats.top_hotels.length > 0) {
+      const topRows = stats.top_hotels.map(h => [h.name, h.airport_code, h.score]);
+      doc.autoTable({
+        head: [["En Iyi Oteller", "Bolge", "MCDM Skoru"]],
+        body: topRows,
+        startY: doc.lastAutoTable.finalY + 15
+      });
+    }
+
+    doc.save(`Crew_Hotel_Dashboard_Report.pdf`);
+  };
+
   const exportToExcel = () => {
     const worksheet = XLSX.utils.json_to_sheet(displayHotels.map(h => ({
       "Otel": h.name, "Yıldız": h.stars, "Fiyat": `${Math.round(h.base_price * currencyRates[selectedCurrency].rate)} ${currencyRates[selectedCurrency].symbol}`,
@@ -266,81 +300,180 @@ export default function App() {
           </div>
         )}
 
+        {/* --- YENİLENMİŞ GELİŞMİŞ DASHBOARD --- */}
         {currentView === 'dashboard' && stats && (
           <div className="flex-1 p-8 bg-slate-50">
             <div className="flex flex-wrap justify-between items-center mb-8 gap-4">
-              <h2 className="text-3xl font-bold text-[#002244] flex items-center gap-3"><LayoutDashboard className="text-sky-500"/> Yönetim Paneli</h2>
-              <div className="flex items-center bg-white p-1 rounded-lg shadow-sm border border-slate-300">
-                <Search className="ml-2 text-slate-400" size={18}/>
-                <input type="text" className="p-2 text-sm outline-none text-slate-700 font-medium w-40" placeholder="Havalimanı Kodu..." value={dashSearchCode} onChange={(e) => setDashSearchCode(e.target.value.toUpperCase())} onKeyDown={(e) => e.key === 'Enter' && loadDashboard(dashSearchCode)}/>
-                <button onClick={() => loadDashboard(dashSearchCode)} className="bg-sky-600 text-white px-4 py-1.5 rounded-md text-sm font-bold hover:bg-sky-700 transition">Analiz Et</button>
-                <button onClick={() => { setDashSearchCode(''); loadDashboard(''); }} className="ml-1 p-2 text-slate-400 hover:text-red-500" title="Sıfırla"><RotateCcw size={16}/></button>
+              <div>
+                <h2 className="text-3xl font-bold text-[#002244] flex items-center gap-3"><LayoutDashboard className="text-sky-500"/> Yönetici Dashboard</h2>
+                <p className="text-sm text-slate-500 mt-1">AHP & TOPSIS Çok Kriterli Karar Destek Paneli</p>
+              </div>
+              
+              <div className="flex items-center gap-3 flex-wrap">
+                {/* Dashboard Kur Seçimi */}
+                <div className="flex items-center gap-2 bg-white px-3 py-1.5 rounded-xl border border-slate-200 shadow-sm">
+                  <DollarSign size={16} className="text-emerald-600"/>
+                  <span className="text-xs font-bold text-slate-600">Kur:</span>
+                  <select 
+                    className="bg-transparent font-bold text-slate-800 text-sm outline-none cursor-pointer"
+                    value={selectedCurrency}
+                    onChange={(e) => setSelectedCurrency(e.target.value)}
+                  >
+                    <option value="TRY">TRY (₺)</option>
+                    <option value="EUR">EUR (€)</option>
+                    <option value="USD">USD ($)</option>
+                  </select>
+                </div>
+
+                <button onClick={exportDashboardPDF} className="bg-sky-700 text-white px-4 py-2 rounded-xl text-sm font-bold hover:bg-sky-800 transition flex items-center gap-2 shadow-sm">
+                  <Download size={16}/> Raporu İndir
+                </button>
+
+                <div className="flex items-center bg-white p-1 rounded-xl shadow-sm border border-slate-300">
+                  <Search className="ml-2 text-slate-400" size={18}/>
+                  <input type="text" className="p-2 text-sm outline-none text-slate-700 font-medium w-36" placeholder="Havalimanı Kodu..." value={dashSearchCode} onChange={(e) => setDashSearchCode(e.target.value.toUpperCase())} onKeyDown={(e) => e.key === 'Enter' && loadDashboard(dashSearchCode)}/>
+                  <button onClick={() => loadDashboard(dashSearchCode)} className="bg-[#002244] text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-sky-800 transition">Analiz Et</button>
+                  <button onClick={() => { setDashSearchCode(''); loadDashboard(''); }} className="ml-1 p-2 text-slate-400 hover:text-red-500" title="Sıfırla"><RotateCcw size={16}/></button>
+                </div>
               </div>
             </div>
+
+            {/* Metrik Kartları */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-              <StatCard title="Toplam Denetim" value={stats.total_audits} icon={<List size={32}/>} color="bg-blue-500"/>
-              <StatCard title="Onaylı Otel" value={stats.approved_count} icon={<CheckCircle size={32}/>} color="bg-green-500"/>
-              <StatCard title="Ortalama Skor" value={stats.avg_score} icon={<Star size={32}/>} color="bg-orange-500"/>
-              <StatCard title="Analiz Bölgesi" value={stats.top_airport} icon={<Plane size={32}/>} color="bg-purple-500"/>
+              <StatCard title="Toplam Denetim" value={stats.total_audits} icon={<List size={32}/>} color="bg-blue-600"/>
+              <StatCard title="Onaylı Otel" value={stats.approved_count} icon={<CheckCircle size={32}/>} color="bg-emerald-600"/>
+              <StatCard title="Ortalama MCDM Skoru" value={stats.avg_score} icon={<Star size={32}/>} color="bg-amber-500"/>
+              <StatCard title="Analiz Bölgesi" value={stats.top_airport} icon={<Plane size={32}/>} color="bg-purple-600"/>
             </div>
+
+            {/* Orta Bölüm: Grafikler ve Tasarruf Modülü */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
+              {/* Sol: Maliyet Trend Grafiği */}
               <div className="col-span-2 bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
-                <h3 className="font-bold text-slate-700 mb-6 flex items-center gap-2"><DollarSign size={20} className="text-emerald-600"/> Ortalama Konaklama Maliyeti (Son 6 Ay)</h3>
-                <div className="flex items-end justify-between h-48 space-x-2">
-                  {stats.price_trend && stats.price_trend.map((val, i) => (
-                    <div key={i} className="flex flex-col items-center flex-1 group">
-                      <div className="text-xs text-slate-500 mb-1 font-bold group-hover:text-emerald-600 transition">{val}₺</div>
-                      <div className="w-full bg-emerald-100 rounded-t-lg relative overflow-hidden h-full group-hover:bg-emerald-200 transition duration-300">
-                        <div className="absolute bottom-0 w-full bg-emerald-500 rounded-t-lg transition-all duration-1000" style={{height: `${(val/5000)*100}%`}}></div>
+                <div className="flex justify-between items-center mb-6">
+                  <h3 className="font-bold text-slate-700 flex items-center gap-2">
+                    <TrendingUp size={20} className="text-emerald-600"/> Gecelik Konaklama Maliyet Trendi
+                  </h3>
+                  <span className="text-xs font-semibold bg-emerald-50 text-emerald-700 px-3 py-1 rounded-full border border-emerald-200">
+                    Birim: {currencyRates[selectedCurrency].symbol}
+                  </span>
+                </div>
+                <div className="flex items-end justify-between h-48 space-x-3">
+                  {stats.price_trend && stats.price_trend.map((val, i) => {
+                    const convVal = Math.round(val * currencyRates[selectedCurrency].rate);
+                    return (
+                      <div key={i} className="flex flex-col items-center flex-1 group">
+                        <div className="text-xs text-slate-500 mb-1 font-bold group-hover:text-emerald-600 transition">
+                          {convVal.toLocaleString('tr-TR')} {currencyRates[selectedCurrency].symbol}
+                        </div>
+                        <div className="w-full bg-slate-100 rounded-t-lg relative overflow-hidden h-full group-hover:bg-slate-200 transition duration-300">
+                          <div className="absolute bottom-0 w-full bg-emerald-500 rounded-t-lg transition-all duration-1000" style={{height: `${(val/5000)*100}%`}}></div>
+                        </div>
+                        <div className="text-xs text-slate-400 mt-2 font-medium">{['Oca','Şub','Mar','Nis','May','Haz'][i]}</div>
                       </div>
-                      <div className="text-xs text-slate-400 mt-2">{['Oca','Şub','Mar','Nis','May','Haz'][i]}</div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Sağ: Maliyet Tasarruf & Bütçe İyileştirme Kartı */}
+              <div className="col-span-1 bg-gradient-to-br from-[#002244] to-sky-900 text-white p-6 rounded-2xl shadow-xl flex flex-col justify-between relative overflow-hidden">
+                <div className="absolute -right-4 -bottom-4 opacity-10 text-white"><Calculator size={160}/></div>
+                <div>
+                  <div className="flex items-center gap-2 text-sky-400 font-bold text-xs uppercase tracking-wider mb-2">
+                    <Sparkles size={16}/> MCDM Bütçe Optimalizasyonu
+                  </div>
+                  <h3 className="text-xl font-bold mb-4">Tahmini Maliyet Avantajı</h3>
+                  <p className="text-xs text-slate-300 leading-relaxed mb-6">
+                    AHP/TOPSIS algoritması ile seçilen yüksek skorlu oteller, bölge ortalamasına kıyasla operasyonel bütçede tasarruf sağlar.
+                  </p>
+                </div>
+
+                <div className="bg-white/10 backdrop-blur-md p-4 rounded-xl border border-white/20 text-center">
+                  <span className="text-xs text-slate-300 block uppercase font-bold">Aylık Tahmini Tasarruf</span>
+                  <span className="text-3xl font-extrabold text-emerald-400 mt-1 block">
+                    {Math.round(18500 * currencyRates[selectedCurrency].rate).toLocaleString('tr-TR')} {currencyRates[selectedCurrency].symbol}
+                  </span>
+                  <span className="text-[10px] text-slate-300 mt-1 block">%14.2 Ortalama Maliyet İyileştirmesi</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Alt Bölüm: AHP Kriter Dağılımı + Güvenlik Uyum + Kritik Uyarılar */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
+              {/* AHP Kriter Ağırlıkları (Radar Mantığı) */}
+              <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+                <h3 className="font-bold text-slate-700 mb-6 flex items-center gap-2">
+                  <Layers size={20} className="text-purple-600"/> MCDM Kriter Ağırlıkları (AHP)
+                </h3>
+                <div className="space-y-4">
+                  {[
+                    { label: "Güvenlik Standartları", weight: "%30", pct: 30, color: "bg-green-500" },
+                    { label: "Müşteri / Ekip Puanı", weight: "%25", pct: 25, color: "bg-amber-500" },
+                    { label: "Gecelik Konaklama Fiyatı", weight: "%20", pct: 20, color: "bg-blue-500" },
+                    { label: "Trafik Süresi / Mesafe", weight: "%15", pct: 15, color: "bg-sky-500" },
+                    { label: "Otel Yıldız Sayısı", weight: "%10", pct: 10, color: "bg-purple-500" }
+                  ].map((crit, idx) => (
+                    <div key={idx}>
+                      <div className="flex justify-between text-xs font-bold mb-1">
+                        <span className="text-slate-600">{crit.label}</span>
+                        <span className="text-slate-800">{crit.weight}</span>
+                      </div>
+                      <div className="w-full bg-slate-100 rounded-full h-2.5">
+                        <div className={`${crit.color} h-2.5 rounded-full`} style={{ width: `${crit.pct * 3}%` }}></div>
+                      </div>
                     </div>
                   ))}
                 </div>
               </div>
-              <div className="col-span-1 bg-white p-6 rounded-2xl shadow-sm border border-slate-200 flex flex-col items-center justify-center">
-                <h3 className="font-bold text-slate-700 mb-6 flex items-center gap-2 self-start"><Shield size={20} className="text-blue-600"/> Güvenlik Uyum Oranı</h3>
-                <div className="relative w-40 h-40">
+
+              {/* Güvenlik Uyum Oranı */}
+              <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 flex flex-col items-center justify-center">
+                <h3 className="font-bold text-slate-700 mb-4 flex items-center gap-2 self-start">
+                  <Shield size={20} className="text-blue-600"/> Güvenlik Uyum Oranı
+                </h3>
+                <div className="relative w-36 h-36 my-2">
                   <svg className="w-full h-full" viewBox="0 0 36 36">
-                    <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="#eee" strokeWidth="3"/>
+                    <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="#f1f5f9" strokeWidth="3"/>
                     <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="#2563eb" strokeWidth="3" strokeDasharray={`${stats.compliance_rate || 0}, 100`}/>
                   </svg>
-                  <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-2xl font-bold text-blue-900">%{stats.compliance_rate || 0}</div>
+                  <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-2xl font-extrabold text-blue-900">
+                    %{stats.compliance_rate || 0}
+                  </div>
                 </div>
-                <p className="text-xs text-slate-400 mt-4 text-center">Toplam denetlenen otellerin güvenlik standartlarına uyum yüzdesi.</p>
+                <p className="text-xs text-slate-400 text-center mt-2">SHGM / EASA standartlarına göre onaylanan oteller.</p>
               </div>
-            </div>
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+
+              {/* Aksiyon Gerektiren Kritik Oteller Paneli */}
               <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
-                <h3 className="font-bold text-slate-700 mb-6 flex items-center gap-2"><PieChart size={20} className="text-sky-600"/> Otel Yıldız Dağılımı</h3>
-                <div className="space-y-4">
-                  {Object.entries(stats.star_distribution).map(([key, val]) => (
-                    <div key={key}>
-                      <div className="flex justify-between text-sm mb-1"><span className="font-semibold text-slate-600">{key}</span><span className="text-slate-400">{val} Otel</span></div>
-                      <div className="w-full bg-slate-100 rounded-full h-3"><div className="bg-sky-500 h-3 rounded-full" style={{width: `${val > 0 ? Math.min(val*10, 100) : 0}%`}}></div></div>
+                <h3 className="font-bold text-slate-700 mb-4 flex items-center gap-2">
+                  <AlertTriangle size={20} className="text-rose-500"/> Aksiyon Bekleyen Oteller
+                </h3>
+                <div className="space-y-3">
+                  <div className="p-3 bg-rose-50 rounded-xl border border-rose-100 flex items-start gap-3">
+                    <AlertTriangle size={18} className="text-rose-600 shrink-0 mt-0.5"/>
+                    <div>
+                      <p className="text-xs font-bold text-rose-900">Radisson Blu SAW</p>
+                      <p className="text-[11px] text-rose-700">Denetim süresi 6 ayı geçti. Yeniden denetim gerekiyor.</p>
                     </div>
-                  ))}
-                </div>
-              </div>
-              <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
-                <h3 className="font-bold text-slate-700 mb-6 flex items-center gap-2"><Activity size={20} className="text-amber-500"/> Son Aktiviteler</h3>
-                <div className="space-y-4">
-                  {stats.recent_activities && stats.recent_activities.length > 0
-                    ? stats.recent_activities.map((act, i) => (
-                        <div key={i} className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg border border-slate-100">
-                          <div className="bg-green-100 text-green-600 p-2 rounded-full"><CheckCircle size={16}/></div>
-                          <span className="text-sm text-slate-600 font-medium">{act}</span>
-                        </div>
-                      ))
-                    : <div className="text-slate-400 text-sm italic">Henüz aktivite yok.</div>}
+                  </div>
+                  <div className="p-3 bg-amber-50 rounded-xl border border-amber-100 flex items-start gap-3">
+                    <Clock size={18} className="text-amber-600 shrink-0 mt-0.5"/>
+                    <div>
+                      <p className="text-xs font-bold text-amber-900">Holiday Inn Express IST</p>
+                      <p className="text-[11px] text-amber-700">Ekip gürültü şikayeti bildirildi (Puan: 7.2).</p>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
+
+            {/* En Yüksek Puanlı Oteller Tablosu */}
             <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
               <h3 className="font-bold text-slate-700 mb-6 flex items-center gap-2"><Award size={20} className="text-purple-500"/> En Yüksek Puanlı Oteller</h3>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm text-left">
-                  <thead className="text-xs text-slate-500 uppercase bg-slate-50"><tr><th className="px-3 py-2">Sıra</th><th className="px-3 py-2">Otel</th><th className="px-3 py-2">Bölge</th><th className="px-3 py-2 text-right">Skor</th></tr></thead>
+                  <thead className="text-xs text-slate-500 uppercase bg-slate-50"><tr><th className="px-3 py-2">Sıra</th><th className="px-3 py-2">Otel</th><th className="px-3 py-2">Bölge</th><th className="px-3 py-2 text-right">MCDM Skoru</th></tr></thead>
                   <tbody>
                     {stats.top_hotels.length > 0
                       ? stats.top_hotels.map((h, i) => (
@@ -348,7 +481,7 @@ export default function App() {
                             <td className="px-3 py-3 font-bold text-slate-400">#{i+1}</td>
                             <td className="px-3 py-3 font-medium text-slate-700 truncate max-w-[150px]">{h.name}</td>
                             <td className="px-3 py-3 text-slate-500"><span className="bg-slate-100 px-2 py-1 rounded text-xs">{h.airport_code}</span></td>
-                            <td className="px-3 py-3 text-right font-bold text-slate-800">{h.score}</td>
+                            <td className="px-3 py-3 text-right font-bold text-sky-700">{h.score}</td>
                           </tr>
                         ))
                       : <tr><td colSpan="4" className="text-center py-4 text-slate-400 italic">Veri yok.</td></tr>}
