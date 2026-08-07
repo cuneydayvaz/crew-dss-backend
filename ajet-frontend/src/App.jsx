@@ -75,7 +75,7 @@ export default function App() {
   const [airportList, setAirportList] = useState([]);
   const [dashSearchCode, setDashSearchCode] = useState('');
 
-  // DÖVİZ SEÇENEĞİ STATE'İ VE KURLARI
+  // DÖVİZ SEÇİMİ STATE VE HESAPLAMA
   const [selectedCurrency, setSelectedCurrency] = useState('TRY');
   const currencyRates = {
     TRY: { rate: 1.0, symbol: '₺' },
@@ -393,24 +393,24 @@ export default function App() {
 
             {currentView === 'results' && (
               <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200 flex flex-wrap items-center justify-between gap-4 mb-6">
-                <div className="flex items-center gap-4 flex-wrap">
-                  <div className="flex items-center gap-2 border-r pr-4 border-slate-200"><Filter size={18} className="text-slate-400"/><span className="text-sm font-bold text-slate-700">Filtre:</span></div>
+                <div className="flex items-center gap-3 flex-wrap">
+                  <div className="flex items-center gap-2 border-r pr-3 border-slate-200"><Filter size={18} className="text-slate-400"/><span className="text-sm font-bold text-slate-700">Filtre:</span></div>
                   <select className="bg-slate-50 border rounded-lg px-3 py-2 text-sm" value={filters.specificStar} onChange={(e) => setFilters({...filters, specificStar: Number(e.target.value)})}>
                     <option value="0">Tüm Yıldızlar</option><option value="3">3 Yıldız</option><option value="4">4 Yıldız</option><option value="5">5 Yıldız</option>
                   </select>
                   <div className="flex items-center gap-2"><span className="text-sm text-slate-600">Max TL:</span><input type="number" className="w-24 bg-slate-50 border rounded-lg px-3 py-2 text-sm" value={filters.maxPrice} onChange={(e) => setFilters({...filters, maxPrice: Number(e.target.value)})}/></div>
-                  <div className="border-l pl-4 flex items-center gap-2">
+                  <div className="border-l pl-3 flex items-center gap-2">
                     <span className="text-sm text-slate-600">Sırala:</span>
                     <select className="bg-slate-50 border rounded-lg px-3 py-2 text-sm" onChange={(e) => setSortBy(e.target.value)} value={sortBy}>
                       <option value="score_desc">En Yüksek Skor</option><option value="dist_asc">En Yakın Mesafe</option><option value="price_asc">Fiyat (Artan)</option><option value="price_desc">Fiyat (Azalan)</option>
                     </select>
                   </div>
                   
-                  {/* DÖVİZ SEÇENEĞİ DROPDOWN */}
-                  <div className="border-l pl-4 flex items-center gap-2">
-                    <span className="text-sm font-bold text-slate-700">Para Birimi:</span>
+                  {/* DÖVİZ DROPDOWN */}
+                  <div className="border-l pl-3 flex items-center gap-2">
+                    <span className="text-sm font-bold text-blue-900">Kur:</span>
                     <select 
-                      className="bg-blue-50 border border-blue-300 text-blue-900 rounded-lg px-3 py-2 text-sm font-bold cursor-pointer" 
+                      className="bg-blue-600 text-white font-extrabold rounded-lg px-3 py-2 text-sm shadow-md hover:bg-blue-700 cursor-pointer outline-none" 
                       value={selectedCurrency} 
                       onChange={(e) => setSelectedCurrency(e.target.value)}
                     >
@@ -546,7 +546,7 @@ function HotelCard({ hotel, rank, selectedCurrency = 'TRY', currencyRates = { TR
         <div className="flex gap-2 mb-4 overflow-x-auto pb-2">{amenities.map(am => { const config = amenityConfig[am] || {icon:<CheckCircle size={14}/>, color:"text-slate-400 bg-slate-50"}; return <div key={am} className={`${config.color} p-1.5 rounded-lg`}>{config.icon}</div>})}</div>
         <div className="grid grid-cols-2 gap-y-2 text-sm text-slate-600 mb-4">
           <div className="flex items-center gap-1"><Star size={14} className="text-orange-400"/> {hotel.stars} <span className="text-slate-400 text-xs">({hotel.user_rating})</span></div>
-          <div className="text-right font-semibold text-slate-800">{convertedPrice.toLocaleString('tr-TR')} {symbol}</div>
+          <div className="text-right font-extrabold text-slate-900">{convertedPrice.toLocaleString('tr-TR')} {symbol}</div>
           <div className="flex items-center gap-1"><Car size={14}/> {hotel.traffic_duration} dk</div>
           <div className="text-right font-bold text-sky-700">MCDM: {scoreVal}</div>
         </div>
