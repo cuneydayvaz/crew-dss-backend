@@ -44,6 +44,20 @@ class LoginRequest(BaseModel):
     username: str
     password: str
 
+class SecurityFormRequest(BaseModel):
+    hotel_id: int
+    inspector_name: str
+    area_safe: bool = True
+    security_guard_24_7: bool = True
+    cctv_exists: bool = True
+    internet_in_rooms: bool = True
+    generator_exists: bool = True
+    perimeter_score: int = 80
+    room_score: int = 80
+    emergency_score: int = 80
+    staff_score: int = 80
+    notes: Optional[str] = ""
+
 FAVORITES_DB = []
 EVALUATIONS_DB = []
 
@@ -87,7 +101,6 @@ def save_json_data(data):
         print(f"JSON Yazma Hatasi: {e}")
 
 def get_reverse_address(lat, lng):
-    """Koordinatları açık adrese çevirir (Reverse Geocoding)"""
     try:
         url = f"https://nominatim.openstreetmap.org/reverse?lat={lat}&lon={lng}&format=json&accept-language=tr"
         headers = {"User-Agent": "CrewDSSHotelApp/2.0"}
@@ -104,13 +117,9 @@ def get_reverse_address(lat, lng):
             if suburb: parts.append(f"{suburb} Mah.")
             if road: parts.append(f"{road} No:{house_num}" if house_num else road)
             if city: parts.append(city)
-            
-            if parts:
-                return ", ".join(parts)
-    except Exception as e:
-        print(f"Reverse Geocode Hatasi: {e}")
-    
-    # Yedek tam adres formatı
+            if parts: return ", ".join(parts)
+    except Exception:
+        pass
     st = random.choice(STREET_NAMES)
     no = random.randint(1, 120)
     return f"Yenişehir Mah. {st} No:{no}"
@@ -143,7 +152,6 @@ def fetch_live_osm_hotels(lat=41.0082, lng=28.9784):
                     el_lat = el.get("lat") or el.get("center", {}).get("lat", lat)
                     el_lng = el.get("lon") or el.get("center", {}).get("lon", lng)
                     
-                    # Adres tamamlama
                     addr_street = tags.get("addr:street")
                     addr_suburb = tags.get("addr:suburb") or tags.get("addr:district")
                     
@@ -286,7 +294,6 @@ def get_airport_hotels(airport_code: str):
                 h["mcdmScore"] = score
         return hotels
 
-    print(f"🔍 {code} için veriler işleniyor...")
     raw_hotels = fetch_live_osm_hotels()
 
     if not raw_hotels:
@@ -302,12 +309,14 @@ def get_airport_hotels(airport_code: str):
             })
 
     processed_hotels = []
+    traffic_statuses = ["Yoğun Trafik", "Akıcı Trafik", "Normal Trafik"]
     for idx, h in enumerate(raw_hotels):
         stars = random.choice([4, 5])
         rating = round(random.uniform(8.1, 9.7), 1)
         price = random.randint(2800, 6500)
         distance = round(random.uniform(1.5, 14.0), 1)
         sec_score = round(random.uniform(7.5, 9.8), 1)
+        tf_status = random.choice(traffic_statuses)
 
         mcdm_val = calculate_mcdm_score(price, distance, rating, sec_score, stars)
 
@@ -319,7 +328,8 @@ def get_airport_hotels(airport_code: str):
             "user_rating": rating,
             "base_price": price,
             "distance_km": distance,
-            "traffic_duration": random.randint(8, 30),
+            "traffic_duration": random.randint(10, 35),
+            "traffic_status": tf_status,
             "lat": h["lat"],
             "lng": h["lng"],
             "address": h["address"],
@@ -342,6 +352,47 @@ def get_airport_hotels(airport_code: str):
     }
     save_json_data(db)
     return processed_hotels
+
+@app.post("/api/security-forms")
+def save_security_form(form: SecurityFormRequest):
+    db = load_json_data()
+    updated_hotel = None
+    
+    for code, data in db.items():
+        for h in data.get("hotels", []):
+            if h.get("id") == form.hotel_id:
+                calc_sec = round((form.perimeter_score + form.room_score + form.emergency_score + form.staff_score) / 40.0, 1)
+                h["latest_security_score"] = calc_sec
+                h["is_security_approved"] = calc_sec >= 7.0
+                h["last_audit_details"] = {
+                    "inspector": form.inspector_name,
+                    "date": "2026-08-07",
+                    "perimeter": form.perimeter_score,
+                    "room": form.room_score,
+                    "emergency": form.emergency_score,
+                    "staff": form.staff_score,
+                    "notes": form.notes,
+                    "area_safe": form.area_safe,
+                    "cctv": form.cctv_exists
+                }
+                new_mcdm = calculate_mcdm_score(
+                    price=h.get("base_price", 3500),
+                    distance=h.get("distance_km", 10.0),
+                    rating=h.get("user_rating", 8.0),
+                    security_score=calc_sec,
+                    stars=h.get("stars", 4)
+                )
+                h["mcdm_score"] = new_mcdm
+                h["mcdmScore"] = new_mcdm
+                updated_hotel = h
+                
+                # Değerlendirmelerim listesine ekle
+                if not any(e.get("id") == h.get("id") for e in EVALUATIONS_DB):
+                    EVALUATIONS_DB.append(h)
+                break
+
+    save_json_data(db)
+    return {"message": "Form saved", "hotel": updated_hotel}
 
 @app.get("/api/weather/{airport_code}")
 def get_weather(airport_code: str):
