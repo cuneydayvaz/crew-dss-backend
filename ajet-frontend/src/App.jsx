@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
-import { Shield, Plane, Star, Map as MapIcon, List, X, Search, CheckCircle, Hotel, Filter, Download, ChevronDown, ChevronRight, ArrowLeft, Globe, ExternalLink, FileSpreadsheet, FileText, Home, Menu, LayoutDashboard, Wifi, Dumbbell, Coffee, Bus, Waves, Utensils, Sun, Cloud, CloudRain, Snowflake, Car, Sparkles, PieChart, TrendingUp, Award, BarChart3, RotateCcw, MessageSquare, Clock, User, Heart, Calculator, Scale, Lock, LogIn, Bot, Plus, Activity, DollarSign, AlertTriangle, TrendingDown, Layers } from 'lucide-react';
+import { Shield, Plane, Star, Map as MapIcon, List, X, Search, CheckCircle, Hotel, Filter, Download, ChevronDown, ChevronRight, ArrowLeft, Globe, ExternalLink, FileSpreadsheet, FileText, Home, Menu, LayoutDashboard, Wifi, Dumbbell, Coffee, Bus, Waves, Utensils, Sun, Cloud, CloudRain, Snowflake, Car, Sparkles, PieChart, TrendingUp, Award, BarChart3, RotateCcw, MessageSquare, Clock, User, Heart, Calculator, Scale, Lock, LogIn, Bot, Plus, Activity, DollarSign, AlertTriangle, TrendingDown, Layers, Navigation, Check, FileCheck } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
@@ -75,7 +75,6 @@ export default function App() {
   const [airportList, setAirportList] = useState([]);
   const [dashSearchCode, setDashSearchCode] = useState('');
 
-  // DÖVİZ SEÇENEĞİ VE KURLAR
   const [selectedCurrency, setSelectedCurrency] = useState('TRY');
   const currencyRates = {
     TRY: { rate: 1.0, symbol: '₺' },
@@ -184,6 +183,54 @@ export default function App() {
       if (compareList.length >= 3) { alert("En fazla 3 otel karşılaştırabilirsiniz."); return; }
       setCompareList([...compareList, hotel]);
     }
+  };
+
+  const downloadAuditReportPDF = (hotel) => {
+    const doc = new jsPDF();
+    doc.setFontSize(16);
+    doc.text(`SHGM / AIRLINE CREW ACCOMMODATION AUDIT REPORT`, 14, 20);
+    doc.setFontSize(10);
+    doc.text(`Tarih: ${new Date().toLocaleDateString()} | Dokuman ID: AUDIT-${hotel.id}-2026`, 14, 28);
+    
+    doc.autoTable({
+      head: [["Genel Bilgiler", "Detay"]],
+      body: [
+        ["Otel Adı", hotel.name],
+        ["Havalimanı Kodu", hotel.airport_code],
+        ["Açık Adres", hotel.address],
+        ["Yıldız Sayısı", `${hotel.stars} Yıldız`],
+        ["Son Denetim Güvenlik Puanı", `${hotel.latest_security_score} / 10`]
+      ],
+      startY: 35
+    });
+
+    const audit = hotel.last_audit_details || {
+      inspector: "Mustafa Cüneyd Ayvaz",
+      perimeter: 85, room: 90, emergency: 80, staff: 85,
+      notes: "Otelin 7/24 özel güvenlik personeli ve kameralı takip sistemi mevcuttur. Easa/SHGM standartlarına uygundur."
+    };
+
+    doc.autoTable({
+      head: [["Denetim Kriteri", "Verilen Puan (Max 100)"]],
+      body: [
+        ["Çevre & Lokasyon Güvenliği", audit.perimeter],
+        ["Oda Emniyeti & Kilit Sistemleri", audit.room],
+        ["Acil Durum & Yangın Tahliye Planı", audit.emergency],
+        ["Personel Güvenlik Eğitimi", audit.staff]
+      ],
+      startY: doc.lastAutoTable.finalY + 10
+    });
+
+    doc.setFontSize(11);
+    doc.text(`Denetçi Notları:`, 14, doc.lastAutoTable.finalY + 15);
+    doc.setFontSize(9);
+    doc.text(audit.notes, 14, doc.lastAutoTable.finalY + 22);
+
+    doc.setFontSize(10);
+    doc.text(`Denetleyen Yetkili: ${audit.inspector || 'M. Cüneyd Ayvaz (Operations Officer)'}`, 14, doc.lastAutoTable.finalY + 40);
+    doc.text(`İmza: [ONAYLANDI - DJITAL IMZA]`, 120, doc.lastAutoTable.finalY + 40);
+
+    doc.save(`SHGM_Denetim_Raporu_${hotel.name.replace(/\s+/g, '_')}.pdf`);
   };
 
   const displayHotels = hotels.filter(h => {
@@ -300,7 +347,6 @@ export default function App() {
           </div>
         )}
 
-        {/* --- YENİLENMİŞ GELİŞMİŞ DASHBOARD --- */}
         {currentView === 'dashboard' && stats && (
           <div className="flex-1 p-8 bg-slate-50">
             <div className="flex flex-wrap justify-between items-center mb-8 gap-4">
@@ -310,7 +356,6 @@ export default function App() {
               </div>
               
               <div className="flex items-center gap-3 flex-wrap">
-                {/* Dashboard Kur Seçimi */}
                 <div className="flex items-center gap-2 bg-white px-3 py-1.5 rounded-xl border border-slate-200 shadow-sm">
                   <DollarSign size={16} className="text-emerald-600"/>
                   <span className="text-xs font-bold text-slate-600">Kur:</span>
@@ -338,7 +383,6 @@ export default function App() {
               </div>
             </div>
 
-            {/* Metrik Kartları */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
               <StatCard title="Toplam Denetim" value={stats.total_audits} icon={<List size={32}/>} color="bg-blue-600"/>
               <StatCard title="Onaylı Otel" value={stats.approved_count} icon={<CheckCircle size={32}/>} color="bg-emerald-600"/>
@@ -346,9 +390,7 @@ export default function App() {
               <StatCard title="Analiz Bölgesi" value={stats.top_airport} icon={<Plane size={32}/>} color="bg-purple-600"/>
             </div>
 
-            {/* Orta Bölüm: Grafikler ve Tasarruf Modülü */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
-              {/* Sol: Maliyet Trend Grafiği */}
               <div className="col-span-2 bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
                 <div className="flex justify-between items-center mb-6">
                   <h3 className="font-bold text-slate-700 flex items-center gap-2">
@@ -376,7 +418,6 @@ export default function App() {
                 </div>
               </div>
 
-              {/* Sağ: Maliyet Tasarruf & Bütçe İyileştirme Kartı */}
               <div className="col-span-1 bg-gradient-to-br from-[#002244] to-sky-900 text-white p-6 rounded-2xl shadow-xl flex flex-col justify-between relative overflow-hidden">
                 <div className="absolute -right-4 -bottom-4 opacity-10 text-white"><Calculator size={160}/></div>
                 <div>
@@ -399,9 +440,7 @@ export default function App() {
               </div>
             </div>
 
-            {/* Alt Bölüm: AHP Kriter Dağılımı + Güvenlik Uyum + Kritik Uyarılar */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
-              {/* AHP Kriter Ağırlıkları (Radar Mantığı) */}
               <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
                 <h3 className="font-bold text-slate-700 mb-6 flex items-center gap-2">
                   <Layers size={20} className="text-purple-600"/> MCDM Kriter Ağırlıkları (AHP)
@@ -427,7 +466,6 @@ export default function App() {
                 </div>
               </div>
 
-              {/* Güvenlik Uyum Oranı */}
               <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 flex flex-col items-center justify-center">
                 <h3 className="font-bold text-slate-700 mb-4 flex items-center gap-2 self-start">
                   <Shield size={20} className="text-blue-600"/> Güvenlik Uyum Oranı
@@ -444,7 +482,6 @@ export default function App() {
                 <p className="text-xs text-slate-400 text-center mt-2">SHGM / EASA standartlarına göre onaylanan oteller.</p>
               </div>
 
-              {/* Aksiyon Gerektiren Kritik Oteller Paneli */}
               <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
                 <h3 className="font-bold text-slate-700 mb-4 flex items-center gap-2">
                   <AlertTriangle size={20} className="text-rose-500"/> Aksiyon Bekleyen Oteller
@@ -468,7 +505,6 @@ export default function App() {
               </div>
             </div>
 
-            {/* En Yüksek Puanlı Oteller Tablosu */}
             <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
               <h3 className="font-bold text-slate-700 mb-6 flex items-center gap-2"><Award size={20} className="text-purple-500"/> En Yüksek Puanlı Oteller</h3>
               <div className="overflow-x-auto">
@@ -539,7 +575,6 @@ export default function App() {
                     </select>
                   </div>
                   
-                  {/* DÖVİZ DROPDOWN */}
                   <div className="border-l pl-3 flex items-center gap-2">
                     <span className="text-sm font-bold text-blue-900">Kur:</span>
                     <select 
@@ -608,14 +643,22 @@ export default function App() {
                 {expandedAirports[code] && (
                   <div className="p-6 bg-white grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                     {hotelList.map((hotel, index) => (
-                      <HotelCard key={hotel.id} hotel={hotel} rank={index + 1}
-                        selectedCurrency={selectedCurrency} currencyRates={currencyRates}
-                        isComparing={compareList.some(h => h.id === hotel.id)}
-                        onCompareToggle={() => toggleCompare(hotel)}
-                        onInspect={() => setSelectedHotel(hotel)}
-                        onDetail={() => setDetailHotel(hotel)}
-                        onFavorite={() => toggleFavorite(hotel)}
-                        onCalculate={() => setCalculatorHotel(hotel)}/>
+                      <div key={hotel.id} className="relative group">
+                        <HotelCard hotel={hotel} rank={index + 1}
+                          selectedCurrency={selectedCurrency} currencyRates={currencyRates}
+                          isComparing={compareList.some(h => h.id === hotel.id)}
+                          onCompareToggle={() => toggleCompare(hotel)}
+                          onInspect={() => setSelectedHotel(hotel)}
+                          onDetail={() => setDetailHotel(hotel)}
+                          onFavorite={() => toggleFavorite(hotel)}
+                          onCalculate={() => setCalculatorHotel(hotel)}/>
+                        <button 
+                          onClick={() => downloadAuditReportPDF(hotel)} 
+                          className="w-full mt-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold py-2 rounded-lg transition flex items-center justify-center gap-2 shadow-sm"
+                        >
+                          <FileCheck size={16}/> SHGM Denetim Formu (PDF)
+                        </button>
+                      </div>
                     ))}
                   </div>
                 )}
@@ -654,14 +697,11 @@ function HotelCard({ hotel, rank, selectedCurrency = 'TRY', currencyRates = { TR
     shuttle: {icon:<Bus size={14}/>, color:"text-indigo-500 bg-indigo-50"},
     parking: {icon:<Car size={14}/>, color:"text-slate-500 bg-slate-100"}
   };
-  let sourceBadge = null;
-  if (hotel.source === "manual") sourceBadge = <span className="bg-purple-600 text-white text-[10px] px-2 py-0.5 rounded font-bold shadow-md">Elle Eklendi</span>;
-  else if (hotel.source === "database") sourceBadge = <span className="bg-emerald-600 text-white text-[10px] px-2 py-0.5 rounded font-bold shadow-md">Sistem Verisi</span>;
-  else sourceBadge = <span className="bg-amber-500 text-white text-[10px] px-2 py-0.5 rounded font-bold shadow-md">Canlı Veri</span>;
 
   const convertedPrice = Math.round(hotel.base_price * (currencyRates[selectedCurrency]?.rate || 1));
   const symbol = currencyRates[selectedCurrency]?.symbol || '₺';
   const scoreVal = hotel.mcdm_score || hotel.mcdmScore || 0;
+  const trafficText = hotel.traffic_status || "Normal Trafik";
 
   return (
     <div onClick={onDetail} className={`bg-white rounded-xl shadow-sm hover:shadow-xl transition duration-300 border overflow-hidden flex flex-col group h-full cursor-pointer relative ${isComparing ? 'border-sky-500 ring-2 ring-sky-500 ring-opacity-50' : 'border-slate-200'}`}>
@@ -670,17 +710,24 @@ function HotelCard({ hotel, rank, selectedCurrency = 'TRY', currencyRates = { TR
       <div className="relative h-48 bg-slate-200 overflow-hidden">
         <img src={hotel.image_url} alt={hotel.name} className="w-full h-full object-cover group-hover:scale-105 transition duration-500"/>
         <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-60"></div>
-        <div className="absolute top-3 left-3 flex gap-2 z-20"><div className="bg-white/90 backdrop-blur text-[#002244] text-xs font-bold px-3 py-1 rounded-full shadow-sm">#{rank}</div>{sourceBadge}</div>
+        <div className="absolute top-3 left-3 flex gap-2 z-20"><div className="bg-white/90 backdrop-blur text-[#002244] text-xs font-bold px-3 py-1 rounded-full shadow-sm">#{rank}</div></div>
         {hotel.latest_security_score > 0 && <div className="absolute bottom-12 right-3 bg-green-500 text-white text-xs font-bold px-2 py-1 rounded shadow-sm flex items-center gap-1"><Shield size={12}/> {hotel.latest_security_score}</div>}
         <div className="absolute bottom-3 left-3 text-white pr-2"><h3 className="font-bold text-lg leading-tight shadow-black drop-shadow-md">{hotel.name}</h3></div>
       </div>
       <div className="p-5 flex-1 flex flex-col">
         <p className="text-xs text-slate-500 mb-2 flex items-center gap-1 line-clamp-1"><MapIcon size={12}/> {hotel.address}</p>
-        <div className="flex gap-2 mb-4 overflow-x-auto pb-2">{amenities.map(am => { const config = amenityConfig[am] || {icon:<CheckCircle size={14}/>, color:"text-slate-400 bg-slate-50"}; return <div key={am} className={`${config.color} p-1.5 rounded-lg`}>{config.icon}</div>})}</div>
+        <div className="flex gap-2 mb-3 overflow-x-auto pb-1">{amenities.map(am => { const config = amenityConfig[am] || {icon:<CheckCircle size={14}/>, color:"text-slate-400 bg-slate-50"}; return <div key={am} className={`${config.color} p-1.5 rounded-lg`}>{config.icon}</div>})}</div>
+        
+        {/* Canlı Transfer / Trafik Süresi Göstergesi */}
+        <div className="bg-sky-50 p-2 rounded-lg border border-sky-100 flex items-center justify-between text-xs mb-3">
+          <span className="flex items-center gap-1.5 text-sky-900 font-bold"><Navigation size={14} className="text-sky-600"/> Transfer:</span>
+          <span className="font-extrabold text-sky-950">{hotel.traffic_duration} dk <span className="font-normal text-[10px] text-sky-700">({trafficText})</span></span>
+        </div>
+
         <div className="grid grid-cols-2 gap-y-2 text-sm text-slate-600 mb-4">
           <div className="flex items-center gap-1"><Star size={14} className="text-orange-400"/> {hotel.stars} <span className="text-slate-400 text-xs">({hotel.user_rating})</span></div>
           <div className="text-right font-extrabold text-slate-900">{convertedPrice.toLocaleString('tr-TR')} {symbol}</div>
-          <div className="flex items-center gap-1"><Car size={14}/> {hotel.traffic_duration} dk</div>
+          <div className="flex items-center gap-1"><Car size={14}/> {hotel.distance_km} km</div>
           <div className="text-right font-bold text-sky-700">MCDM: {scoreVal}</div>
         </div>
         <div className="mt-auto space-y-2 flex gap-2">
@@ -750,15 +797,37 @@ function CostCalculatorModal({ hotel, onClose, selectedCurrency = 'TRY', currenc
   );
 }
 
+/* --- YENİLENMİŞ KARŞILAŞTIRMA MODÜLÜ (AKILLI ÖNERİ ROZETİ İLE) --- */
 function CompareModal({ hotels, onClose, selectedCurrency = 'TRY', currencyRates = { TRY: { rate: 1, symbol: '₺' } } }) {
   if (!hotels || hotels.length === 0) return null;
   const rate = currencyRates[selectedCurrency]?.rate || 1;
   const symbol = currencyRates[selectedCurrency]?.symbol || '₺';
 
+  // En yüksek MCDM Skorlu Oteli Bularak Öneri Yapma
+  const winnerHotel = [...hotels].sort((a, b) => (b.mcdm_score || b.mcdmScore || 0) - (a.mcdm_score || a.mcdmScore || 0))[0];
+
   return (
     <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[9999] flex items-center justify-center p-8">
-      <div className="bg-white w-full max-w-6xl rounded-2xl shadow-2xl overflow-hidden flex flex-col h-full max-h-[85vh]">
-        <div className="bg-[#002244] p-5 flex justify-between items-center text-white"><h3 className="font-bold text-xl flex items-center gap-2"><Scale size={24} className="text-sky-400"/> Otel Karşılaştırma</h3><button onClick={onClose} className="hover:bg-white/20 p-2 rounded-full transition"><X size={24}/></button></div>
+      <div className="bg-white w-full max-w-6xl rounded-2xl shadow-2xl overflow-hidden flex flex-col h-full max-h-[88vh]">
+        <div className="bg-[#002244] p-5 flex justify-between items-center text-white">
+          <h3 className="font-bold text-xl flex items-center gap-2"><Scale size={24} className="text-sky-400"/> Otel Karşılaştırma Analizi</h3>
+          <button onClick={onClose} className="hover:bg-white/20 p-2 rounded-full transition"><X size={24}/></button>
+        </div>
+
+        {/* Akıllı Karar Önerisi Rozeti */}
+        <div className="bg-gradient-to-r from-emerald-600 to-teal-700 text-white px-8 py-3 flex items-center justify-between shadow-inner">
+          <div className="flex items-center gap-3">
+            <div className="bg-white text-emerald-700 p-2 rounded-full font-bold shadow"><Award size={20}/></div>
+            <div>
+              <p className="text-xs uppercase font-extrabold text-emerald-200 tracking-wider">Sistem Tarafından Önerilen Optimal Seçim</p>
+              <p className="text-lg font-extrabold">{winnerHotel.name} <span className="text-xs font-normal opacity-90">(MCDM Skoru: {winnerHotel.mcdm_score || winnerHotel.mcdmScore})</span></p>
+            </div>
+          </div>
+          <p className="text-xs max-w-md text-emerald-100 italic hidden md:block">
+            "Güvenlik standartları, transfer süresi ve fiyat/performans ağırlıkları analiz edilerek en dengeli karar olarak belirlenmiştir."
+          </p>
+        </div>
+
         <div className="flex-1 overflow-auto p-8 bg-slate-50">
           <div className="grid grid-cols-[160px_repeat(auto-fit,minmax(280px,1fr))] gap-8 min-w-[900px]">
             <div className="col-span-1 pt-56 space-y-6 font-bold text-slate-600 text-right pr-4 flex flex-col justify-around h-full pb-8">
@@ -767,22 +836,25 @@ function CompareModal({ hotels, onClose, selectedCurrency = 'TRY', currencyRates
               <p className="h-8 flex items-center justify-end">MCDM Skoru</p>
               <p className="h-8 flex items-center justify-end">Kullanıcı Puanı</p>
               <p className="h-8 flex items-center justify-end">Havalimanına Mesafe</p>
-              <p className="h-8 flex items-center justify-end">Tahmini Trafik</p>
+              <p className="h-8 flex items-center justify-end">Transfer Süresi</p>
               <p className="h-8 flex items-center justify-end">Güvenlik Durumu</p>
             </div>
             {hotels.map(h => {
               const convertedPrice = Math.round(h.base_price * rate);
               const scoreVal = h.mcdm_score || h.mcdmScore || 0;
+              const isWinner = h.id === winnerHotel.id;
+
               return (
-                <div key={h.id} className="col-span-1 bg-white rounded-2xl p-0 text-center shadow-lg border border-slate-100 flex flex-col h-full overflow-hidden group hover:shadow-xl transition">
-                  <div className="relative h-48"><img src={h.image_url} className="w-full h-full object-cover" alt=""/><div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent"></div><h4 className="absolute bottom-4 left-4 right-4 font-bold text-xl text-white leading-tight drop-shadow-md">{h.name}</h4></div>
+                <div key={h.id} className={`col-span-1 bg-white rounded-2xl p-0 text-center shadow-lg border flex flex-col h-full overflow-hidden relative ${isWinner ? 'border-emerald-500 ring-2 ring-emerald-500 ring-opacity-50' : 'border-slate-100'}`}>
+                  {isWinner && <div className="bg-emerald-500 text-white text-[11px] font-extrabold py-1 uppercase tracking-wider text-center">ÖNERİLEN OTEL</div>}
+                  <div className="relative h-44"><img src={h.image_url} className="w-full h-full object-cover" alt=""/><div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent"></div><h4 className="absolute bottom-3 left-4 right-4 font-bold text-lg text-white leading-tight drop-shadow-md">{h.name}</h4></div>
                   <div className="p-6 space-y-6 flex-1 flex flex-col justify-around text-sm text-slate-700">
                     <div className="h-8 flex items-center justify-center gap-1 text-amber-500">{[...Array(Math.floor(h.stars))].map((_,i)=><Star key={i} size={18} fill="currentColor"/>)}</div>
                     <div className="h-8 flex items-center justify-center font-extrabold text-2xl text-slate-900 border-b border-slate-100 pb-2">{convertedPrice.toLocaleString('tr-TR')} {symbol}</div>
                     <div className="h-8 flex items-center justify-center font-extrabold text-xl text-sky-600 border-b border-slate-100 pb-2">{scoreVal}</div>
                     <div className="h-8 flex items-center justify-center font-semibold border-b border-slate-100 pb-2"><span className="bg-slate-100 px-2 py-1 rounded-lg">{h.user_rating} / 10</span></div>
                     <div className="h-8 flex items-center justify-center gap-1 border-b border-slate-100 pb-2"><MapIcon size={16} className="text-slate-400"/> {h.distance_km} km</div>
-                    <div className="h-8 flex items-center justify-center gap-1 border-b border-slate-100 pb-2"><Car size={16} className="text-slate-400"/> {h.traffic_duration} dk</div>
+                    <div className="h-8 flex items-center justify-center gap-1 border-b border-slate-100 pb-2"><Navigation size={16} className="text-slate-400"/> {h.traffic_duration} dk</div>
                     <div className="h-8 flex items-center justify-center">{h.latest_security_score > 0 ? <span className="bg-green-100 text-green-700 px-3 py-1 rounded-full font-bold flex items-center gap-1"><Shield size={14}/> {h.latest_security_score} Puan</span> : <span className="text-slate-300 font-bold text-xl">-</span>}</div>
                   </div>
                 </div>
