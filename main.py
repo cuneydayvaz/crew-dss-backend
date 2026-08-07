@@ -1,3 +1,5 @@
+import json
+import os
 import math
 import random
 import hashlib
@@ -510,116 +512,55 @@ def init(db: Session = Depends(get_db)):
 def get_airports(db: Session = Depends(get_db)):
     return db.query(Airport).all()
 
+# main.py dosyasındaki import'ların hemen altına veya get_hotels'in hemen üstüne ekle:
+def load_hotels_from_json(code: str):
+    json_path = os.path.join("data", "hotels_database.json")
+    if os.path.exists(json_path):
+        with open(json_path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+            if code in data:
+                return data[code]["hotels"]
+    return []
+
+# Eski get_hotels fonksiyonunun yerine bu güncel halini yapıştır:
 @app.get("/api/airports/{code}/hotels")
 def get_hotels(code: str, db: Session = Depends(get_db)):
-    code = code.upper()
-    ap = db.query(Airport).filter(Airport.code == code).first()
-    if not ap:
-        lat, lng, name = fetch_airport_coordinates_live(code)
-        ap = Airport(code=code, name=name, lat=lat, lng=lng)
-        db.add(ap); db.commit()
-
+    code = code.upper().strip()
+    
     existing = db.query(Hotel).filter(Hotel.airport_code == code).all()
-    if len(existing) < 5:
-        print(f"⚠️ {code} için veri az ({len(existing)}). Kaynaklar taranıyor...")
-        osm_hotels = fetch_hotels_from_osm_live(ap.lat, ap.lng)
-        process_hotels_mixed(db, ap, osm_hotels if osm_hotels else [])
+    
+    if len(existing) < 2:
+        json_hotels = load_hotels_from_json(code)
+        
+        ap = db.query(Airport).filter(Airport.code == code).first()
+        if not ap:
+            lat, lng, name = fetch_airport_coordinates_live(code)
+            ap = Airport(code=code, name=name, lat=lat, lng=lng)
+            db.add(ap)
+            db.commit()
+
+        for jh in json_hotels:
+            h = Hotel(
+                airport_code=code,
+                name=jh["name"],
+                stars=jh["stars"],
+                user_rating=jh["user_rating"],
+                base_price=jh["base_price"],
+                distance_km=jh["distance_km"],
+                traffic_duration=jh["traffic_duration"],
+                lat=jh["lat"],
+                lng=jh["lng"],
+                address=jh["address"],
+                website_url=jh["website_url"],
+                booking_url=jh["booking_url"],
+                image_url=jh["image_url"],
+                amenities=jh["amenities"],
+                latest_security_score=0.0,
+                ai_insight=generate_ai_insight(jh["base_price"], jh["stars"], jh["distance_km"], jh["traffic_duration"]),
+                source="auto_json"
+            )
+            db.add(h)
+        db.commit()
         existing = db.query(Hotel).filter(Hotel.airport_code == code).all()
 
-    print(f"✅ Toplam {len(existing)} otel listeleniyor.")
     return calculate_mcdm_ranking(existing)
-
-@app.post("/api/hotels")
-def create_manual_hotel(hotel: HotelCreate, db: Session = Depends(get_db)):
-    traffic = int(hotel.distance_km * 2 + 5)
-    ai = generate_ai_insight(hotel.base_price, hotel.stars, hotel.distance_km, traffic)
-    airport = db.query(Airport).filter(Airport.code == hotel.airport_code.upper()).first()
-    if not airport:
-        lat, lng, name = fetch_airport_coordinates_live(hotel.airport_code.upper())
-        airport = Airport(code=hotel.airport_code.upper(), name=name, lat=lat, lng=lng)
-        db.add(airport); db.commit()
-    lat = airport.lat + random.uniform(-0.02, 0.02)
-    lng = airport.lng + random.uniform(-0.02, 0.02)
-    new_hotel = Hotel(
-        airport_code=hotel.airport_code.upper(), name=hotel.name, stars=hotel.stars,
-        user_rating=8.0, base_price=hotel.base_price, distance_km=hotel.distance_km,
-        traffic_duration=traffic, lat=lat, lng=lng, address=hotel.address,
-        website_url=hotel.website_url, booking_url="#",
-        image_url=random.choice(HOTEL_IMAGES), amenities=hotel.amenities,
-        latest_security_score=0, is_security_approved=False, ai_insight=ai, source="manual"
-    )
-    db.add(new_hotel); db.commit(); add_mock_comments(db, new_hotel.id)
-    return {"message": "Otel Başarıyla Eklendi!"}
-
-@app.post("/api/security-forms")
-def save_security(form: SecurityFormCreate, db: Session = Depends(get_db)):
-    h = db.query(Hotel).filter(Hotel.id == form.hotel_id).first()
-    score, is_app = calculate_security_score(form)
-    db.add(SecurityForm(**form.dict()))
-    h.latest_security_score = score
-    h.is_security_approved = is_app
-    db.commit()
-    return {"message": "Saved", "score": score}
-
-@app.put("/api/hotels/{hotel_id}/favorite")
-def fav_hotel(hotel_id: int, db: Session = Depends(get_db)):
-    h = db.query(Hotel).filter(Hotel.id == hotel_id).first()
-    if h:
-        h.is_favorite = not h.is_favorite; db.commit()
-    return {"msg": "OK"}
-
-@app.get("/api/favorites")
-def get_favs(db: Session = Depends(get_db)):
-    favs = db.query(Hotel).filter(Hotel.is_favorite == True).all()
-    return calculate_mcdm_ranking(favs)
-
-@app.get("/api/stats", response_model=StatsResponse)
-def get_stats(airport_code: Optional[str] = None, db: Session = Depends(get_db)):
-    try:
-        q = db.query(Hotel)
-        if airport_code and airport_code.upper() != "ALL":
-            ap = db.query(Airport).filter(Airport.code == airport_code.upper()).first()
-            if ap:
-                q = q.filter(Hotel.airport_code == ap.code)
-            else:
-                return {"total_audits": 0, "approved_count": 0, "avg_score": 0, "top_airport": "-",
-                        "star_distribution": {}, "price_trend": [], "recent_activities": [],
-                        "compliance_rate": 0, "top_hotels": []}
-
-        scored = q.filter(Hotel.latest_security_score > 0).all()
-        total = len(scored)
-        approved = sum(1 for h in scored if h.is_security_approved)
-        avg = sum(h.latest_security_score for h in scored) / total if total > 0 else 0
-        s5 = q.filter(Hotel.stars == 5).count()
-        s4 = q.filter(Hotel.stars == 4).count()
-        s3 = q.filter(Hotel.stars == 3).count()
-        top = sorted(scored, key=lambda x: x.latest_security_score, reverse=True)[:5]
-        top_data = [{"name": h.name, "score": float(h.latest_security_score), "airport_code": h.airport_code} for h in top]
-        trend = [random.randint(2500, 3500) for _ in range(6)]
-        compliance = int((approved / total * 100) if total > 0 else 0)
-        recent = [f"{h.name} denetlendi - Skor: {h.latest_security_score}" for h in scored[:3]]
-
-        return {
-            "total_audits": total, "approved_count": approved, "avg_score": round(avg, 1),
-            "top_airport": airport_code if airport_code and airport_code != "ALL" else "TÜMÜ",
-            "star_distribution": {"5 Yıldız": s5, "4 Yıldız": s4, "3 Yıldız": s3},
-            "price_trend": trend, "recent_activities": recent,
-            "compliance_rate": compliance, "top_hotels": top_data
-        }
-    except:
-        return {"total_audits": 0, "approved_count": 0, "avg_score": 0, "top_airport": "Err",
-                "star_distribution": {}, "price_trend": [], "recent_activities": [],
-                "compliance_rate": 0, "top_hotels": []}
-
-@app.get("/api/evaluations")
-def get_evals(db: Session = Depends(get_db)):
-    scored_hotels = db.query(Hotel).filter(Hotel.latest_security_score > 0).all()
-    return calculate_mcdm_ranking(scored_hotels)
-
-@app.get("/api/weather/{code}", response_model=WeatherResponse)
-def w(code: str):
-    return {"temp": 20, "condition": "Güneşli", "icon": "sun"}
-
-if __name__ == "__main__":
-    nest_asyncio.apply()
-    uvicorn.run(app, host="127.0.0.1", port=8000)

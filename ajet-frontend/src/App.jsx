@@ -76,6 +76,14 @@ export default function App() {
   const [airportList, setAirportList] = useState([]);
   const [dashSearchCode, setDashSearchCode] = useState('');
 
+  // DÖVİZ SEÇENEĞİ STATE'İ VE KURLARI
+  const [selectedCurrency, setSelectedCurrency] = useState('TRY');
+  const currencyRates = {
+    TRY: { rate: 1.0, symbol: '₺' },
+    EUR: { rate: 0.026, symbol: '€' },
+    USD: { rate: 0.028, symbol: '$' }
+  };
+
   useEffect(() => {
     axios.post(`${API_BASE}/init-data?v=force_prod_${Date.now()}`).then(() =>
       axios.get(`${API_BASE}/airports-list?v=force_prod_${Date.now()}`).then(res => setAirportList(res.data))
@@ -187,13 +195,13 @@ export default function App() {
     if (sortBy === 'price_asc') return a.base_price - b.base_price;
     if (sortBy === 'price_desc') return b.base_price - a.base_price;
     if (sortBy === 'dist_asc') return a.distance_km - b.distance_km;
-    return b.mcdm_score - a.mcdm_score;
+    return (b.mcdm_score || b.mcdmScore || 0) - (a.mcdm_score || a.mcdmScore || 0);
   });
 
   const exportToExcel = () => {
     const worksheet = XLSX.utils.json_to_sheet(displayHotels.map(h => ({
-      "Otel": h.name, "Yıldız": h.stars, "Fiyat": h.base_price,
-      "Trafik": h.traffic_duration, "Skor": h.mcdm_score
+      "Otel": h.name, "Yıldız": h.stars, "Fiyat": `${Math.round(h.base_price * currencyRates[selectedCurrency].rate)} ${currencyRates[selectedCurrency].symbol}`,
+      "Trafik": h.traffic_duration, "Skor": h.mcdm_score || h.mcdmScore
     })));
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "Oteller");
@@ -203,7 +211,7 @@ export default function App() {
   const exportToPDF = () => {
     const doc = new jsPDF();
     doc.text(`Crew Hotel Advisor`, 14, 22);
-    const rows = displayHotels.map(h => [h.name, h.stars, `${h.base_price} TL`, `${h.traffic_duration} dk`, h.mcdm_score]);
+    const rows = displayHotels.map(h => [h.name, h.stars, `${Math.round(h.base_price * currencyRates[selectedCurrency].rate)} ${currencyRates[selectedCurrency].symbol}`, `${h.traffic_duration} dk`, h.mcdm_score || h.mcdmScore]);
     doc.autoTable({ head: [["Otel", "Yildiz", "Fiyat", "Trafik", "Skor"]], body: rows, startY: 35 });
     doc.save(`Hotel_Report.pdf`);
   };
@@ -398,6 +406,20 @@ export default function App() {
                       <option value="score_desc">En Yüksek Skor</option><option value="dist_asc">En Yakın Mesafe</option><option value="price_asc">Fiyat (Artan)</option><option value="price_desc">Fiyat (Azalan)</option>
                     </select>
                   </div>
+                  
+                  {/* DÖVİZ SEÇENEĞİ DROPDOWN */}
+                  <div className="border-l pl-4 flex items-center gap-2">
+                    <span className="text-sm font-bold text-slate-700">Para Birimi:</span>
+                    <select 
+                      className="bg-blue-50 border border-blue-300 text-blue-900 rounded-lg px-3 py-2 text-sm font-bold cursor-pointer" 
+                      value={selectedCurrency} 
+                      onChange={(e) => setSelectedCurrency(e.target.value)}
+                    >
+                      <option value="TRY">TRY (₺)</option>
+                      <option value="EUR">EUR (€)</option>
+                      <option value="USD">USD ($)</option>
+                    </select>
+                  </div>
                 </div>
                 <div className="flex items-center gap-2">
                   <button onClick={exportToExcel} className="p-2 text-green-700 bg-green-50 hover:bg-green-100 rounded-lg border border-green-200 transition" title="Excel İndir"><FileSpreadsheet size={20}/></button>
@@ -416,6 +438,7 @@ export default function App() {
                   {displayHotels.length > 0
                     ? displayHotels.map((hotel, index) => (
                         <HotelCard key={hotel.id} hotel={hotel} rank={index + 1}
+                          selectedCurrency={selectedCurrency} currencyRates={currencyRates}
                           isComparing={compareList.some(h => h.id === hotel.id)}
                           onCompareToggle={() => toggleCompare(hotel)}
                           onInspect={() => setSelectedHotel(hotel)}
@@ -454,6 +477,7 @@ export default function App() {
                   <div className="p-6 bg-white grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                     {hotelList.map((hotel, index) => (
                       <HotelCard key={hotel.id} hotel={hotel} rank={index + 1}
+                        selectedCurrency={selectedCurrency} currencyRates={currencyRates}
                         isComparing={compareList.some(h => h.id === hotel.id)}
                         onCompareToggle={() => toggleCompare(hotel)}
                         onInspect={() => setSelectedHotel(hotel)}
@@ -470,9 +494,9 @@ export default function App() {
       </main>
 
       {selectedHotel && <SecurityModal hotel={selectedHotel} onClose={() => setSelectedHotel(null)} onSubmit={submitSecurityForm}/>}
-      {detailHotel && <HotelDetailModal hotel={detailHotel} onClose={() => setDetailHotel(null)}/>}
-      {calculatorHotel && <CostCalculatorModal hotel={calculatorHotel} onClose={() => setCalculatorHotel(null)}/>}
-      {showCompareModal && <CompareModal hotels={compareList} onClose={() => setShowCompareModal(false)}/>}
+      {detailHotel && <HotelDetailModal hotel={detailHotel} onClose={() => setDetailHotel(null)} selectedCurrency={selectedCurrency} currencyRates={currencyRates}/>}
+      {calculatorHotel && <CostCalculatorModal hotel={calculatorHotel} onClose={() => setCalculatorHotel(null)} selectedCurrency={selectedCurrency} currencyRates={currencyRates}/>}
+      {showCompareModal && <CompareModal hotels={compareList} onClose={() => setShowCompareModal(false)} selectedCurrency={selectedCurrency} currencyRates={currencyRates}/>}
       {showAddHotelModal && <AddHotelModal onClose={() => setShowAddHotelModal(false)} onSubmit={submitNewHotel} airportList={airportList}/>}
     </div>
   );
@@ -486,7 +510,7 @@ function StatCard({ title, value, icon, color }) {
   return <div className="bg-[#ffffff] p-6 rounded-2xl shadow-sm border border-slate-200 flex items-center gap-4"><div className={`p-4 rounded-xl text-white ${color}`}>{icon}</div><div><p className="text-slate-500 text-sm font-medium">{title}</p><p className="text-2xl font-bold text-slate-800">{value}</p></div></div>
 }
 
-function HotelCard({ hotel, rank, isComparing, onCompareToggle, onInspect, onDetail, onFavorite, onCalculate }) {
+function HotelCard({ hotel, rank, selectedCurrency = 'TRY', currencyRates = { TRY: { rate: 1, symbol: '₺' } }, isComparing, onCompareToggle, onInspect, onDetail, onFavorite, onCalculate }) {
   const amenities = hotel.amenities ? hotel.amenities.split(',') : [];
   const amenityConfig = {
     wifi: {icon:<Wifi size={14}/>, color:"text-blue-500 bg-blue-50"},
@@ -502,6 +526,11 @@ function HotelCard({ hotel, rank, isComparing, onCompareToggle, onInspect, onDet
   if (hotel.source === "manual") sourceBadge = <span className="bg-purple-600 text-white text-[10px] px-2 py-0.5 rounded font-bold shadow-md">Elle Eklendi</span>;
   else if (hotel.source === "database") sourceBadge = <span className="bg-emerald-600 text-white text-[10px] px-2 py-0.5 rounded font-bold shadow-md">Sistem Verisi</span>;
   else sourceBadge = <span className="bg-amber-500 text-white text-[10px] px-2 py-0.5 rounded font-bold shadow-md">Canlı Veri</span>;
+
+  // Dinamik Para Birimi Çevrimi
+  const convertedPrice = Math.round(hotel.base_price * (currencyRates[selectedCurrency]?.rate || 1));
+  const symbol = currencyRates[selectedCurrency]?.symbol || '₺';
+  const scoreVal = hotel.mcdm_score || hotel.mcdmScore || 0;
 
   return (
     <div onClick={onDetail} className={`bg-white rounded-xl shadow-sm hover:shadow-xl transition duration-300 border overflow-hidden flex flex-col group h-full cursor-pointer relative ${isComparing ? 'border-sky-500 ring-2 ring-sky-500 ring-opacity-50' : 'border-slate-200'}`}>
@@ -519,9 +548,9 @@ function HotelCard({ hotel, rank, isComparing, onCompareToggle, onInspect, onDet
         <div className="flex gap-2 mb-4 overflow-x-auto pb-2">{amenities.map(am => { const config = amenityConfig[am] || {icon:<CheckCircle size={14}/>, color:"text-slate-400 bg-slate-50"}; return <div key={am} className={`${config.color} p-1.5 rounded-lg`}>{config.icon}</div>})}</div>
         <div className="grid grid-cols-2 gap-y-2 text-sm text-slate-600 mb-4">
           <div className="flex items-center gap-1"><Star size={14} className="text-orange-400"/> {hotel.stars} <span className="text-slate-400 text-xs">({hotel.user_rating})</span></div>
-          <div className="text-right font-semibold text-slate-800">{hotel.base_price} ₺</div>
+          <div className="text-right font-semibold text-slate-800">{convertedPrice.toLocaleString('tr-TR')} {symbol}</div>
           <div className="flex items-center gap-1"><Car size={14}/> {hotel.traffic_duration} dk</div>
-          <div className="text-right font-bold text-sky-700">MCDM: {hotel.mcdm_score}</div>
+          <div className="text-right font-bold text-sky-700">MCDM: {scoreVal}</div>
         </div>
         <div className="mt-auto space-y-2 flex gap-2">
           <button onClick={(e) => {e.stopPropagation(); onCalculate();}} className="bg-slate-100 hover:bg-slate-200 text-slate-700 p-2 rounded-lg" title="Maliyet Hesapla"><Calculator size={18}/></button>
@@ -563,10 +592,13 @@ function AddHotelModal({ onClose, onSubmit, airportList }) {
   );
 }
 
-function CostCalculatorModal({ hotel, onClose }) {
+function CostCalculatorModal({ hotel, onClose, selectedCurrency = 'TRY', currencyRates = { TRY: { rate: 1, symbol: '₺' } } }) {
   const [rooms, setRooms] = useState(6);
   const [nights, setNights] = useState(1);
-  const total = rooms * hotel.base_price * nights;
+  const rate = currencyRates[selectedCurrency]?.rate || 1;
+  const symbol = currencyRates[selectedCurrency]?.symbol || '₺';
+  const convertedBasePrice = Math.round(hotel.base_price * rate);
+  const total = rooms * convertedBasePrice * nights;
 
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-4">
@@ -574,12 +606,12 @@ function CostCalculatorModal({ hotel, onClose }) {
         <div className="bg-[#002244] p-4 flex justify-between items-center text-white"><h3 className="font-bold text-lg flex items-center gap-2"><Calculator size={20}/> Maliyet Hesapla</h3><button onClick={onClose}><X size={24}/></button></div>
         <div className="p-6 space-y-4">
           <div className="flex items-center gap-3 mb-4"><img src={hotel.image_url} className="w-12 h-12 rounded object-cover" alt=""/><div className="font-bold text-slate-800">{hotel.name}</div></div>
-          <p className="text-xs text-slate-400 bg-slate-50 p-2 rounded-lg">Gecelik oda fiyatı: <span className="font-bold text-slate-600">{hotel.base_price} ₺</span>. Toplam = oda sayısı × gecelik fiyat × konaklama süresi.</p>
+          <p className="text-xs text-slate-400 bg-slate-50 p-2 rounded-lg">Gecelik oda fiyatı: <span className="font-bold text-slate-600">{convertedBasePrice.toLocaleString('tr-TR')} {symbol}</span>. Toplam = oda sayısı × gecelik fiyat × konaklama süresi.</p>
           <div><label className="text-xs text-slate-500 font-bold block mb-1">Toplam Oda Sayısı</label><input type="number" value={rooms} onChange={e=>setRooms(Number(e.target.value))} className="w-full border p-2 rounded" min="1"/></div>
           <div><label className="text-xs text-slate-500 font-bold block mb-1">Konaklama (Gece)</label><input type="number" value={nights} onChange={e=>setNights(Number(e.target.value))} className="w-full border p-2 rounded" min="1"/></div>
           <div className="bg-slate-100 p-4 rounded-xl text-center mt-4">
             <p className="text-slate-500 text-xs font-bold uppercase">Toplam Tahmini Maliyet</p>
-            <p className="text-3xl font-extrabold text-[#002244] mt-1">{total.toLocaleString()} ₺</p>
+            <p className="text-3xl font-extrabold text-[#002244] mt-1">{total.toLocaleString('tr-TR')} {symbol}</p>
           </div>
         </div>
       </div>
@@ -587,8 +619,11 @@ function CostCalculatorModal({ hotel, onClose }) {
   );
 }
 
-function CompareModal({ hotels, onClose }) {
+function CompareModal({ hotels, onClose, selectedCurrency = 'TRY', currencyRates = { TRY: { rate: 1, symbol: '₺' } } }) {
   if (!hotels || hotels.length === 0) return null;
+  const rate = currencyRates[selectedCurrency]?.rate || 1;
+  const symbol = currencyRates[selectedCurrency]?.symbol || '₺';
+
   return (
     <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[9999] flex items-center justify-center p-8">
       <div className="bg-white w-full max-w-6xl rounded-2xl shadow-2xl overflow-hidden flex flex-col h-full max-h-[85vh]">
@@ -604,20 +639,24 @@ function CompareModal({ hotels, onClose }) {
               <p className="h-8 flex items-center justify-end">Tahmini Trafik</p>
               <p className="h-8 flex items-center justify-end">Güvenlik Durumu</p>
             </div>
-            {hotels.map(h => (
-              <div key={h.id} className="col-span-1 bg-white rounded-2xl p-0 text-center shadow-lg border border-slate-100 flex flex-col h-full overflow-hidden group hover:shadow-xl transition">
-                <div className="relative h-48"><img src={h.image_url} className="w-full h-full object-cover" alt=""/><div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent"></div><h4 className="absolute bottom-4 left-4 right-4 font-bold text-xl text-white leading-tight drop-shadow-md">{h.name}</h4></div>
-                <div className="p-6 space-y-6 flex-1 flex flex-col justify-around text-sm text-slate-700">
-                  <div className="h-8 flex items-center justify-center gap-1 text-amber-500">{[...Array(Math.floor(h.stars))].map((_,i)=><Star key={i} size={18} fill="currentColor"/>)}</div>
-                  <div className="h-8 flex items-center justify-center font-extrabold text-2xl text-slate-900 border-b border-slate-100 pb-2">{h.base_price.toLocaleString()} ₺</div>
-                  <div className="h-8 flex items-center justify-center font-extrabold text-xl text-sky-600 border-b border-slate-100 pb-2">{h.mcdm_score}</div>
-                  <div className="h-8 flex items-center justify-center font-semibold border-b border-slate-100 pb-2"><span className="bg-slate-100 px-2 py-1 rounded-lg">{h.user_rating} / 10</span></div>
-                  <div className="h-8 flex items-center justify-center gap-1 border-b border-slate-100 pb-2"><MapIcon size={16} className="text-slate-400"/> {h.distance_km} km</div>
-                  <div className="h-8 flex items-center justify-center gap-1 border-b border-slate-100 pb-2"><Car size={16} className="text-slate-400"/> {h.traffic_duration} dk</div>
-                  <div className="h-8 flex items-center justify-center">{h.latest_security_score > 0 ? <span className="bg-green-100 text-green-700 px-3 py-1 rounded-full font-bold flex items-center gap-1"><Shield size={14}/> {h.latest_security_score} Puan</span> : <span className="text-slate-300 font-bold text-xl">-</span>}</div>
+            {hotels.map(h => {
+              const convertedPrice = Math.round(h.base_price * rate);
+              const scoreVal = h.mcdm_score || h.mcdmScore || 0;
+              return (
+                <div key={h.id} className="col-span-1 bg-white rounded-2xl p-0 text-center shadow-lg border border-slate-100 flex flex-col h-full overflow-hidden group hover:shadow-xl transition">
+                  <div className="relative h-48"><img src={h.image_url} className="w-full h-full object-cover" alt=""/><div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent"></div><h4 className="absolute bottom-4 left-4 right-4 font-bold text-xl text-white leading-tight drop-shadow-md">{h.name}</h4></div>
+                  <div className="p-6 space-y-6 flex-1 flex flex-col justify-around text-sm text-slate-700">
+                    <div className="h-8 flex items-center justify-center gap-1 text-amber-500">{[...Array(Math.floor(h.stars))].map((_,i)=><Star key={i} size={18} fill="currentColor"/>)}</div>
+                    <div className="h-8 flex items-center justify-center font-extrabold text-2xl text-slate-900 border-b border-slate-100 pb-2">{convertedPrice.toLocaleString('tr-TR')} {symbol}</div>
+                    <div className="h-8 flex items-center justify-center font-extrabold text-xl text-sky-600 border-b border-slate-100 pb-2">{scoreVal}</div>
+                    <div className="h-8 flex items-center justify-center font-semibold border-b border-slate-100 pb-2"><span className="bg-slate-100 px-2 py-1 rounded-lg">{h.user_rating} / 10</span></div>
+                    <div className="h-8 flex items-center justify-center gap-1 border-b border-slate-100 pb-2"><MapIcon size={16} className="text-slate-400"/> {h.distance_km} km</div>
+                    <div className="h-8 flex items-center justify-center gap-1 border-b border-slate-100 pb-2"><Car size={16} className="text-slate-400"/> {h.traffic_duration} dk</div>
+                    <div className="h-8 flex items-center justify-center">{h.latest_security_score > 0 ? <span className="bg-green-100 text-green-700 px-3 py-1 rounded-full font-bold flex items-center gap-1"><Shield size={14}/> {h.latest_security_score} Puan</span> : <span className="text-slate-300 font-bold text-xl">-</span>}</div>
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       </div>
@@ -625,7 +664,8 @@ function CompareModal({ hotels, onClose }) {
   );
 }
 
-function HotelDetailModal({ hotel, onClose }) {
+function HotelDetailModal({ hotel, onClose, selectedCurrency = 'TRY', currencyRates = { TRY: { rate: 1, symbol: '₺' } } }) {
+  const scoreVal = hotel.mcdm_score || hotel.mcdmScore || 0;
   return (
     <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[9999] flex items-center justify-center p-4">
       <div className="bg-white w-full max-w-4xl rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh] relative">
@@ -666,7 +706,7 @@ function HotelDetailModal({ hotel, onClose }) {
             </div>
             <div className="space-y-6">
               <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200"><h4 className="font-bold text-slate-700 mb-4 flex items-center gap-2"><Sparkles size={18} className="text-amber-500"/> Otel Özellikleri</h4><div className="flex flex-wrap gap-2">{hotel.amenities && hotel.amenities.split(',').map(am => <span key={am} className="bg-slate-50 hover:bg-sky-50 border border-slate-200 text-slate-600 text-xs font-semibold px-3 py-1.5 rounded-full transition cursor-default capitalize">{am}</span>)}</div></div>
-              <div className="bg-gradient-to-br from-blue-50 to-indigo-50 p-6 rounded-xl border border-blue-100 text-center shadow-inner"><p className="text-blue-900 font-extrabold text-4xl mb-1">{hotel.mcdm_score}</p><p className="text-blue-600 text-xs uppercase tracking-wider font-bold mb-4">MCDM Skoru</p><div className="w-full bg-blue-200 rounded-full h-2"><div className="bg-blue-600 h-2 rounded-full" style={{width: `${hotel.mcdm_score}%`}}></div></div></div>
+              <div className="bg-gradient-to-br from-blue-50 to-indigo-50 p-6 rounded-xl border border-blue-100 text-center shadow-inner"><p className="text-blue-900 font-extrabold text-4xl mb-1">{scoreVal}</p><p className="text-blue-600 text-xs uppercase tracking-wider font-bold mb-4">MCDM Skoru</p><div className="w-full bg-blue-200 rounded-full h-2"><div className="bg-blue-600 h-2 rounded-full" style={{width: `${scoreVal}%`}}></div></div></div>
               <button onClick={() => window.open(hotel.booking_url, '_blank')} className="block w-full bg-[#003580] hover:bg-[#002244] text-white text-center font-bold py-3 rounded-xl transition shadow-lg shadow-blue-200">Booking.com'da Gör</button>
             </div>
           </div>
