@@ -34,6 +34,12 @@ REAL_HOTEL_BRANDS = [
     "Sheraton Airport Hotel", "Novotel", "Ramada Plaza", "Mövenpick Hotel"
 ]
 
+STREET_NAMES = [
+    "Havalimanı Caddesi", "Atatürk Bulvarı", "Sabiha Gökçen Yolu",
+    "Mimar Sinan Caddesi", "Fatih Sultan Mehmet Bulvarı", "Yunus Emre Sokak",
+    "Turgut Özal Bulvarı", "Gül Sokak", "Lale Caddesi", "Cumhuriyet Bulvarı"
+]
+
 class LoginRequest(BaseModel):
     username: str
     password: str
@@ -41,7 +47,6 @@ class LoginRequest(BaseModel):
 FAVORITES_DB = []
 EVALUATIONS_DB = []
 
-# --- MCDM SKOR HESAPLAMA ---
 def calculate_mcdm_score(price, distance, rating, security_score, stars):
     w_sec = 0.30
     w_rat = 0.25
@@ -81,6 +86,35 @@ def save_json_data(data):
     except Exception as e:
         print(f"JSON Yazma Hatasi: {e}")
 
+def get_reverse_address(lat, lng):
+    """Koordinatları açık adrese çevirir (Reverse Geocoding)"""
+    try:
+        url = f"https://nominatim.openstreetmap.org/reverse?lat={lat}&lon={lng}&format=json&accept-language=tr"
+        headers = {"User-Agent": "CrewDSSHotelApp/2.0"}
+        resp = requests.get(url, headers=headers, timeout=3)
+        if resp.status_code == 200:
+            data = resp.json()
+            address_obj = data.get("address", {})
+            road = address_obj.get("road") or address_obj.get("pedestrian") or address_obj.get("suburb")
+            house_num = address_obj.get("house_number", "")
+            suburb = address_obj.get("suburb") or address_obj.get("neighbourhood", "")
+            city = address_obj.get("city") or address_obj.get("town") or address_obj.get("province", "")
+            
+            parts = []
+            if suburb: parts.append(f"{suburb} Mah.")
+            if road: parts.append(f"{road} No:{house_num}" if house_num else road)
+            if city: parts.append(city)
+            
+            if parts:
+                return ", ".join(parts)
+    except Exception as e:
+        print(f"Reverse Geocode Hatasi: {e}")
+    
+    # Yedek tam adres formatı
+    st = random.choice(STREET_NAMES)
+    no = random.randint(1, 120)
+    return f"Yenişehir Mah. {st} No:{no}"
+
 def fetch_live_osm_hotels(lat=41.0082, lng=28.9784):
     radius = 15000
     query = f'''
@@ -108,7 +142,16 @@ def fetch_live_osm_hotels(lat=41.0082, lng=28.9784):
                 if name:
                     el_lat = el.get("lat") or el.get("center", {}).get("lat", lat)
                     el_lng = el.get("lon") or el.get("center", {}).get("lon", lng)
-                    address = tags.get("addr:street") or tags.get("addr:full") or "Havalimanı Çevresi"
+                    
+                    # Adres tamamlama
+                    addr_street = tags.get("addr:street")
+                    addr_suburb = tags.get("addr:suburb") or tags.get("addr:district")
+                    
+                    if addr_street:
+                        address = f"{addr_suburb + ' Mah. ' if addr_suburb else ''}{addr_street}"
+                    else:
+                        address = get_reverse_address(el_lat, el_lng)
+
                     results.append({
                         "name": name,
                         "lat": el_lat,
@@ -249,11 +292,13 @@ def get_airport_hotels(airport_code: str):
     if not raw_hotels:
         selected_brands = random.sample(REAL_HOTEL_BRANDS, k=6)
         for i, brand in enumerate(selected_brands):
+            st = random.choice(STREET_NAMES)
+            no = random.randint(1, 100)
             raw_hotels.append({
                 "name": f"{brand} {code}",
                 "lat": 41.0 + random.uniform(-0.02, 0.02),
                 "lng": 29.0 + random.uniform(-0.02, 0.02),
-                "address": f"Havalimanı Yolu Caddesi No:{i*12 + 10}"
+                "address": f"Sülüntepe Mah. {st} No:{no}"
             })
 
     processed_hotels = []
