@@ -75,7 +75,7 @@ export default function App() {
   const [airportList, setAirportList] = useState([]);
   const [dashSearchCode, setDashSearchCode] = useState('');
 
-  // DÖVİZ SEÇİMİ STATE VE HESAPLAMA
+  // DÖVİZ SEÇENEĞİ VE KURLAR
   const [selectedCurrency, setSelectedCurrency] = useState('TRY');
   const currencyRates = {
     TRY: { rate: 1.0, symbol: '₺' },
