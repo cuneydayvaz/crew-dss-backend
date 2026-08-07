@@ -145,7 +145,7 @@ def get_reverse_address(lat, lng):
     return f"Yenişehir Mah. {st} No:{no}"
 
 def fetch_live_osm_hotels(lat=41.0082, lng=28.9784):
-    """Alternatif Overpass Sunucuları ile Yedekli Canlı Arama"""
+    """Alternatif Overpass Sunucuları ile Gerçek İsim ve Koordinat Arama"""
     radius = 15000
     query = f'''
     [out:json][timeout:10];
@@ -163,7 +163,7 @@ def fetch_live_osm_hotels(lat=41.0082, lng=28.9784):
             resp = requests.get(
                 endpoint,
                 params={'data': query},
-                headers={"User-Agent": "CrewDSSHotelBot/2.0"},
+                headers={"User-Agent": "CrewDSSHotelBot/3.0"},
                 timeout=8
             )
             if resp.status_code == 200:
@@ -171,8 +171,18 @@ def fetch_live_osm_hotels(lat=41.0082, lng=28.9784):
                 results = []
                 for el in elements:
                     tags = el.get("tags", {})
-                    name = tags.get("name")
-                    if name:
+                    
+                    # Gerçek Isim Etiketlerini Arama (Ingilizce, Rusça, Yerel veya Marka)
+                    hotel_name = (
+                        tags.get("name:en") or 
+                        tags.get("name") or 
+                        tags.get("name:ru") or 
+                        tags.get("name:tr") or 
+                        tags.get("brand") or 
+                        tags.get("operator")
+                    )
+
+                    if hotel_name:
                         el_lat = el.get("lat") or el.get("center", {}).get("lat", lat)
                         el_lng = el.get("lon") or el.get("center", {}).get("lon", lng)
                         
@@ -185,13 +195,13 @@ def fetch_live_osm_hotels(lat=41.0082, lng=28.9784):
                             address = get_reverse_address(el_lat, el_lng)
 
                         results.append({
-                            "name": name,
+                            "name": hotel_name,
                             "lat": el_lat,
                             "lng": el_lng,
                             "address": address
                         })
                 if results:
-                    print(f"✅ {len(results)} Gercek Otel Bulundu ({endpoint})")
+                    print(f"✅ {len(results)} Gerçek Otel Ismi ile Bulundu ({endpoint})")
                     return results[:12]
         except Exception as e:
             print(f"⚠️ Sunucu Zaman Aşımı ({endpoint}): {e}")
