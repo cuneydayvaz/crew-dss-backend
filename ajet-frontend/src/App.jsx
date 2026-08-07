@@ -207,7 +207,7 @@ export default function App() {
     const audit = hotel.last_audit_details || {
       inspector: "Mustafa Cüneyd Ayvaz",
       perimeter: 85, room: 90, emergency: 80, staff: 85,
-      notes: "Otelin 7/24 özel güvenlik personeli ve kameralı takip sistemi mevcuttur. Easa/SHGM standartlarına uygundur."
+      notes: "Otelin 7/24 özel güvenlik personeli ve kameralı takip sistemi mevcuttur. EASA/SHGM standartlarına uygundur."
     };
 
     doc.autoTable({
@@ -228,7 +228,7 @@ export default function App() {
 
     doc.setFontSize(10);
     doc.text(`Denetleyen Yetkili: ${audit.inspector || 'M. Cüneyd Ayvaz (Operations Officer)'}`, 14, doc.lastAutoTable.finalY + 40);
-    doc.text(`İmza: [ONAYLANDI - DJITAL IMZA]`, 120, doc.lastAutoTable.finalY + 40);
+    doc.text(`İmza: [ONAYLANDI - DIJITAL IMZA]`, 120, doc.lastAutoTable.finalY + 40);
 
     doc.save(`SHGM_Denetim_Raporu_${hotel.name.replace(/\s+/g, '_')}.pdf`);
   };
@@ -643,22 +643,16 @@ export default function App() {
                 {expandedAirports[code] && (
                   <div className="p-6 bg-white grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                     {hotelList.map((hotel, index) => (
-                      <div key={hotel.id} className="relative group">
-                        <HotelCard hotel={hotel} rank={index + 1}
-                          selectedCurrency={selectedCurrency} currencyRates={currencyRates}
-                          isComparing={compareList.some(h => h.id === hotel.id)}
-                          onCompareToggle={() => toggleCompare(hotel)}
-                          onInspect={() => setSelectedHotel(hotel)}
-                          onDetail={() => setDetailHotel(hotel)}
-                          onFavorite={() => toggleFavorite(hotel)}
-                          onCalculate={() => setCalculatorHotel(hotel)}/>
-                        <button 
-                          onClick={() => downloadAuditReportPDF(hotel)} 
-                          className="w-full mt-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold py-2 rounded-lg transition flex items-center justify-center gap-2 shadow-sm"
-                        >
-                          <FileCheck size={16}/> SHGM Denetim Formu (PDF)
-                        </button>
-                      </div>
+                      <HotelCard key={hotel.id} hotel={hotel} rank={index + 1}
+                        selectedCurrency={selectedCurrency} currencyRates={currencyRates}
+                        isComparing={compareList.some(h => h.id === hotel.id)}
+                        onCompareToggle={() => toggleCompare(hotel)}
+                        onInspect={() => setSelectedHotel(hotel)}
+                        onDetail={() => setDetailHotel(hotel)}
+                        onFavorite={() => toggleFavorite(hotel)}
+                        onCalculate={() => setCalculatorHotel(hotel)}
+                        showAuditPdfBtn={true}
+                        onDownloadAuditPdf={() => downloadAuditReportPDF(hotel)}/>
                     ))}
                   </div>
                 )}
@@ -678,14 +672,14 @@ export default function App() {
 }
 
 function SidebarItem({ icon, label, isOpen, active, onClick }) {
-  return <button onClick={onClick} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition overflow-hidden whitespace-nowrap ${active ? 'bg-sky-600 text-white shadow-lg' : 'text-slate-300 hover:bg-white/10'}`}><div className="min-w-[22px]">{icon}</div><span className={`transition-opacity duration-300 ${isOpen ? 'opacity-100' : 'opacity-0'}`}>{label}</span></button>
+  return <button onClick={onClick} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition overflow-hidden whitespace-nowrap ${active ? 'bg-sky-600 text-white shadow-lg' : 'text-[#8ba2bd] hover:bg-white/10 hover:text-white'}`}><div className="min-w-[22px]">{icon}</div><span className={`transition-opacity duration-300 ${isOpen ? 'opacity-100' : 'opacity-0'}`}>{label}</span></button>
 }
 
 function StatCard({ title, value, icon, color }) {
   return <div className="bg-[#ffffff] p-6 rounded-2xl shadow-sm border border-slate-200 flex items-center gap-4"><div className={`p-4 rounded-xl text-white ${color}`}>{icon}</div><div><p className="text-slate-500 text-sm font-medium">{title}</p><p className="text-2xl font-bold text-slate-800">{value}</p></div></div>
 }
 
-function HotelCard({ hotel, rank, selectedCurrency = 'TRY', currencyRates = { TRY: { rate: 1, symbol: '₺' } }, isComparing, onCompareToggle, onInspect, onDetail, onFavorite, onCalculate }) {
+function HotelCard({ hotel, rank, selectedCurrency = 'TRY', currencyRates = { TRY: { rate: 1, symbol: '₺' } }, isComparing, onCompareToggle, onInspect, onDetail, onFavorite, onCalculate, showAuditPdfBtn, onDownloadAuditPdf }) {
   const amenities = hotel.amenities ? hotel.amenities.split(',') : [];
   const amenityConfig = {
     wifi: {icon:<Wifi size={14}/>, color:"text-blue-500 bg-blue-50"},
@@ -718,7 +712,6 @@ function HotelCard({ hotel, rank, selectedCurrency = 'TRY', currencyRates = { TR
         <p className="text-xs text-slate-500 mb-2 flex items-center gap-1 line-clamp-1"><MapIcon size={12}/> {hotel.address}</p>
         <div className="flex gap-2 mb-3 overflow-x-auto pb-1">{amenities.map(am => { const config = amenityConfig[am] || {icon:<CheckCircle size={14}/>, color:"text-slate-400 bg-slate-50"}; return <div key={am} className={`${config.color} p-1.5 rounded-lg`}>{config.icon}</div>})}</div>
         
-        {/* Canlı Transfer / Trafik Süresi Göstergesi */}
         <div className="bg-sky-50 p-2 rounded-lg border border-sky-100 flex items-center justify-between text-xs mb-3">
           <span className="flex items-center gap-1.5 text-sky-900 font-bold"><Navigation size={14} className="text-sky-600"/> Transfer:</span>
           <span className="font-extrabold text-sky-950">{hotel.traffic_duration} dk <span className="font-normal text-[10px] text-sky-700">({trafficText})</span></span>
@@ -728,11 +721,23 @@ function HotelCard({ hotel, rank, selectedCurrency = 'TRY', currencyRates = { TR
           <div className="flex items-center gap-1"><Star size={14} className="text-orange-400"/> {hotel.stars} <span className="text-slate-400 text-xs">({hotel.user_rating})</span></div>
           <div className="text-right font-extrabold text-slate-900">{convertedPrice.toLocaleString('tr-TR')} {symbol}</div>
           <div className="flex items-center gap-1"><Car size={14}/> {hotel.distance_km} km</div>
-          <div className="text-right font-bold text-sky-700">MCDM: {scoreVal}</div>
+          <div className="text-right font-bold text-[#002244]">MCDM: {scoreVal}</div>
         </div>
-        <div className="mt-auto space-y-2 flex gap-2">
-          <button onClick={(e) => {e.stopPropagation(); onCalculate();}} className="bg-slate-100 hover:bg-slate-200 text-slate-700 p-2 rounded-lg" title="Maliyet Hesapla"><Calculator size={18}/></button>
-          <button onClick={(e) => {e.stopPropagation(); e.preventDefault(); onInspect();}} className="flex-1 bg-slate-50 hover:bg-[#002244] hover:text-white text-[#002244] font-semibold py-2 rounded-lg transition text-sm flex items-center justify-center gap-2 border border-slate-200 hover:border-[#002244]"><Shield size={16}/> {hotel.latest_security_score > 0 ? 'Puanı Güncelle' : 'Denetle / Puanla'}</button>
+
+        <div className="mt-auto space-y-2">
+          <div className="flex gap-2">
+            <button onClick={(e) => {e.stopPropagation(); onCalculate();}} className="bg-slate-100 hover:bg-slate-200 text-slate-700 p-2 rounded-lg" title="Maliyet Hesapla"><Calculator size={18}/></button>
+            <button onClick={(e) => {e.stopPropagation(); e.preventDefault(); onInspect();}} className="flex-1 bg-slate-50 hover:bg-[#002244] hover:text-white text-[#002244] font-semibold py-2 rounded-lg transition text-sm flex items-center justify-center gap-2 border border-slate-200 hover:border-[#002244]"><Shield size={16}/> {hotel.latest_security_score > 0 ? 'Puanı Güncelle' : 'Denetle / Puanla'}</button>
+          </div>
+
+          {showAuditPdfBtn && (
+            <button 
+              onClick={(e) => { e.stopPropagation(); onDownloadAuditPdf(); }} 
+              className="w-full bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold py-2.5 rounded-lg transition flex items-center justify-center gap-2 shadow-sm"
+            >
+              <FileCheck size={16}/> SHGM Denetim Formu (PDF)
+            </button>
+          )}
         </div>
       </div>
     </div>
@@ -797,13 +802,11 @@ function CostCalculatorModal({ hotel, onClose, selectedCurrency = 'TRY', currenc
   );
 }
 
-/* --- YENİLENMİŞ KARŞILAŞTIRMA MODÜLÜ (AKILLI ÖNERİ ROZETİ İLE) --- */
 function CompareModal({ hotels, onClose, selectedCurrency = 'TRY', currencyRates = { TRY: { rate: 1, symbol: '₺' } } }) {
   if (!hotels || hotels.length === 0) return null;
   const rate = currencyRates[selectedCurrency]?.rate || 1;
   const symbol = currencyRates[selectedCurrency]?.symbol || '₺';
 
-  // En yüksek MCDM Skorlu Oteli Bularak Öneri Yapma
   const winnerHotel = [...hotels].sort((a, b) => (b.mcdm_score || b.mcdmScore || 0) - (a.mcdm_score || a.mcdmScore || 0))[0];
 
   return (
@@ -814,7 +817,6 @@ function CompareModal({ hotels, onClose, selectedCurrency = 'TRY', currencyRates
           <button onClick={onClose} className="hover:bg-white/20 p-2 rounded-full transition"><X size={24}/></button>
         </div>
 
-        {/* Akıllı Karar Önerisi Rozeti */}
         <div className="bg-gradient-to-r from-emerald-600 to-teal-700 text-white px-8 py-3 flex items-center justify-between shadow-inner">
           <div className="flex items-center gap-3">
             <div className="bg-white text-emerald-700 p-2 rounded-full font-bold shadow"><Award size={20}/></div>
