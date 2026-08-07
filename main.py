@@ -40,6 +40,13 @@ STREET_NAMES = [
     "Turgut Özal Bulvarı", "Gül Sokak", "Lale Caddesi", "Cumhuriyet Bulvarı"
 ]
 
+# ALTERNATİF GLOBAL OVERPASS SUNUCULARI
+OVERPASS_ENDPOINTS = [
+    "https://overpass-api.de/api/interpreter",
+    "https://overpass.kumi.systems/api/interpreter",
+    "https://maps.mail.ru/osm/tools/overpass/api/interpreter"
+]
+
 class LoginRequest(BaseModel):
     username: str
     password: str
@@ -100,6 +107,19 @@ def save_json_data(data):
     except Exception as e:
         print(f"JSON Yazma Hatasi: {e}")
 
+def get_airport_coordinates(code: str):
+    """Havalimanı koduna göre koordinat sorgular"""
+    try:
+        url = f"https://nominatim.openstreetmap.org/search?q={code}+airport&format=json&limit=1"
+        headers = {"User-Agent": "CrewDSSHotelApp/2.0"}
+        resp = requests.get(url, headers=headers, timeout=4)
+        if resp.status_code == 200 and resp.json():
+            data = resp.json()[0]
+            return float(data["lat"]), float(data["lon"])
+    except Exception as e:
+        print(f"Havalimor Kord Alinamadi: {e}")
+    return 41.0082, 28.9784  # Varsayılan IST
+
 def get_reverse_address(lat, lng):
     try:
         url = f"https://nominatim.openstreetmap.org/reverse?lat={lat}&lon={lng}&format=json&accept-language=tr"
@@ -125,9 +145,10 @@ def get_reverse_address(lat, lng):
     return f"Yenişehir Mah. {st} No:{no}"
 
 def fetch_live_osm_hotels(lat=41.0082, lng=28.9784):
+    """Alternatif Overpass Sunucuları ile Yedekli Canlı Arama"""
     radius = 15000
     query = f'''
-    [out:json][timeout:12];
+    [out:json][timeout:10];
     (
       node["tourism"="hotel"](around:{radius}, {lat}, {lng});
       way["tourism"="hotel"](around:{radius}, {lat}, {lng});
@@ -135,41 +156,47 @@ def fetch_live_osm_hotels(lat=41.0082, lng=28.9784):
     );
     out center 15;
     '''
-    try:
-        resp = requests.get(
-            "https://overpass-api.de/api/interpreter",
-            params={'data': query},
-            headers={"User-Agent": "CrewDSSHotelBot/1.0"},
-            timeout=10
-        )
-        if resp.status_code == 200:
-            elements = resp.json().get("elements", [])
-            results = []
-            for el in elements:
-                tags = el.get("tags", {})
-                name = tags.get("name")
-                if name:
-                    el_lat = el.get("lat") or el.get("center", {}).get("lat", lat)
-                    el_lng = el.get("lon") or el.get("center", {}).get("lon", lng)
-                    
-                    addr_street = tags.get("addr:street")
-                    addr_suburb = tags.get("addr:suburb") or tags.get("addr:district")
-                    
-                    if addr_street:
-                        address = f"{addr_suburb + ' Mah. ' if addr_suburb else ''}{addr_street}"
-                    else:
-                        address = get_reverse_address(el_lat, el_lng)
 
-                    results.append({
-                        "name": name,
-                        "lat": el_lat,
-                        "lng": el_lng,
-                        "address": address
-                    })
-            if results:
-                return results[:12]
-    except Exception as e:
-        print(f"OSM Canli Arama Hatasi: {e}")
+    for endpoint in OVERPASS_ENDPOINTS:
+        try:
+            print(f"📡 Sorgu Atılıyor: {endpoint}")
+            resp = requests.get(
+                endpoint,
+                params={'data': query},
+                headers={"User-Agent": "CrewDSSHotelBot/2.0"},
+                timeout=8
+            )
+            if resp.status_code == 200:
+                elements = resp.json().get("elements", [])
+                results = []
+                for el in elements:
+                    tags = el.get("tags", {})
+                    name = tags.get("name")
+                    if name:
+                        el_lat = el.get("lat") or el.get("center", {}).get("lat", lat)
+                        el_lng = el.get("lon") or el.get("center", {}).get("lon", lng)
+                        
+                        addr_street = tags.get("addr:street")
+                        addr_suburb = tags.get("addr:suburb") or tags.get("addr:district")
+                        
+                        if addr_street:
+                            address = f"{addr_suburb + ' Mah. ' if addr_suburb else ''}{addr_street}"
+                        else:
+                            address = get_reverse_address(el_lat, el_lng)
+
+                        results.append({
+                            "name": name,
+                            "lat": el_lat,
+                            "lng": el_lng,
+                            "address": address
+                        })
+                if results:
+                    print(f"✅ {len(results)} Gercek Otel Bulundu ({endpoint})")
+                    return results[:12]
+        except Exception as e:
+            print(f"⚠️ Sunucu Zaman Aşımı ({endpoint}): {e}")
+            continue
+
     return []
 
 # --- ENDPOINT'LER ---
@@ -294,7 +321,8 @@ def get_airport_hotels(airport_code: str):
                 h["mcdmScore"] = score
         return hotels
 
-    raw_hotels = fetch_live_osm_hotels()
+    lat, lng = get_airport_coordinates(code)
+    raw_hotels = fetch_live_osm_hotels(lat, lng)
 
     if not raw_hotels:
         selected_brands = random.sample(REAL_HOTEL_BRANDS, k=6)
@@ -303,8 +331,8 @@ def get_airport_hotels(airport_code: str):
             no = random.randint(1, 100)
             raw_hotels.append({
                 "name": f"{brand} {code}",
-                "lat": 41.0 + random.uniform(-0.02, 0.02),
-                "lng": 29.0 + random.uniform(-0.02, 0.02),
+                "lat": lat + random.uniform(-0.02, 0.02),
+                "lng": lng + random.uniform(-0.02, 0.02),
                 "address": f"Sülüntepe Mah. {st} No:{no}"
             })
 
@@ -347,7 +375,7 @@ def get_airport_hotels(airport_code: str):
         processed_hotels.append(hotel_obj)
 
     db[code] = {
-        "airport": {"name": f"{code} Havalimanı", "lat": 41.0, "lng": 29.0},
+        "airport": {"name": f"{code} Havalimanı", "lat": lat, "lng": lng},
         "hotels": processed_hotels
     }
     save_json_data(db)
@@ -386,7 +414,6 @@ def save_security_form(form: SecurityFormRequest):
                 h["mcdmScore"] = new_mcdm
                 updated_hotel = h
                 
-                # Değerlendirmelerim listesine ekle
                 if not any(e.get("id") == h.get("id") for e in EVALUATIONS_DB):
                     EVALUATIONS_DB.append(h)
                 break
